@@ -5,7 +5,7 @@ built. Section numbers like "SPEC 2.3" point there.
 
 ## 1. Overview
 
-One Signal K server plugin with no runtime dependencies. A 1 s tick reads the
+One Signal K server plugin with no runtime dependencies. A tick (1 s active, 10 s idle; SPEC 2.6) reads the
 current values from the server's data tree, runs pure maths, and fans the
 result out to Signal K paths, a notification, a resource provider and (later)
 control outputs. A buildless webapp in `public/` reads live values over the
@@ -14,7 +14,7 @@ server's History API.
 
 ```
  Signal K data tree (venus plugin, MPPTs, BMV/SmartShunt)
-        │  app.getSelfPath(...)  every tick (1 s)
+        │  app.getSelfPath(...)  every tick (1 s / 10 s)
         ▼
  ┌──────────────┐   readings   ┌──────────────┐  snapshot  ┌────────────────────┐
  │ sources.js   │ ───────────▶ │ engine.js    │ ─────────▶ │ outputs/           │
@@ -39,10 +39,22 @@ be unit-tested with plain objects.
 
 Owns the lifecycle: `start(options)` builds the components from config,
 registers metadata and the resource provider, loads the learned propeller
-constant, and starts the tick with `setInterval`. `stop()` clears the timer,
+model, and starts the tick. `stop()` clears the timer, unsubscribes,
 saves the propeller model and publishes `matchState: unknown`. Each tick
 step is wrapped in its own `try/catch → app.error`, so a failure in history or
 publishing never stops the maths (signalk-plugin skill, section 2).
+
+**Tick scheduler.** A `setTimeout` chain, not a fixed `setInterval`, so the
+interval can change between ticks: 1 s while the engine reports the motor in
+drive, 10 s once it has been out of drive for `idleAfterSeconds` or its data
+is stale. While idle, a subscription via `app.subscriptionmanager` to the
+motor power path and `<propulsion path>.direction` (with `minPeriod` 1000 ms)
+acts only as a wake signal: when a delta shows direction ≠ 0 and power above
+the idle threshold, the pending timeout is cleared and a tick runs at once.
+Values are still read from the tree on the tick, so duplicate deltas stay
+harmless. In idle the engine skips smoothing, propeller observation and the
+over-budget timer; the energy counter and advisory output keep running (the
+30 s gap limit is well above 10 s).
 
 ### 2.2 Sources (`lib/sources.js`, with `lib/power.js`)
 
@@ -314,8 +326,8 @@ signalk-solar-sailing/
 - Persisted state: plugin config in `plugin-config-data/`, learned propeller
   constant in the plugin data dir (`getDataDirPath()`), never in
   `node_modules`.
-- Load on the Cerbo: one 1 s tick reading about 20 values, a delta at most
-  once a second, one History API query at start. Negligible.
+- Load on the Cerbo: idle most of the day (one tick every 10 s); while
+  motoring one 1 s tick reading about 20 values, a delta at most once a second, one History API query at start. Negligible.
 
 ## 9. Future Considerations
 

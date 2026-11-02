@@ -25,6 +25,9 @@ Fake `app` recording `handleMessage`, `setDefaultMetadata`,
 - notification `notifications.solarsailing.overBudget` sent once on raise and
   once on clear, state `warn` / `normal`
 - resource `status` returns the last snapshot and breakdown; writes reject
+- scheduler: 1 s while active, 10 s while idle; a wake delta (direction ≠ 0,
+  power > idle) runs a tick at once; duplicate wake deltas don't double-tick;
+  `stop()` clears the timer and the subscription
 - a throwing step (e.g. history seed) doesn't stop the tick
 - manual: run on a development Signal K server with the log fixture played
   in, check the data browser and KIP
@@ -32,7 +35,7 @@ Fake `app` recording `handleMessage`, `setDefaultMetadata`,
 ## Implementation Steps
 - [ ] `lib/outputs/advisory.js`
 - [ ] `lib/resources.js`
-- [ ] `index.js` lifecycle and tick
+- [ ] `index.js` lifecycle and tick scheduler (`setTimeout` chain, wake subscription)
 - [ ] Tests above; manual run noted in the PR
 
 ## Files to Create/Modify

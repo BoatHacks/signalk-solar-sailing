@@ -24,6 +24,9 @@ by plan 4.
   motor missing, or not in drive
 - alarm only after `over` for `overBudgetDelaySeconds` while in drive;
   resets on matched/under or leaving drive
+- `mode` is `active` while in drive and turns `idle` after `idleAfterSeconds`
+  out of drive or on stale motor data; in idle, match state is `unknown`,
+  smoothing, propeller observation and the alarm timer don't advance
 - a replay of the laserbrain log runs without throwing and never reports
   `matched` while solar is unknown
 

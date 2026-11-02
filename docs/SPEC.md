@@ -87,6 +87,20 @@ Solar input changes fast under passing clouds. The budget uses an exponential
 moving average (default time constant 30 s) so the target doesn't jump around.
 Motor power is shown raw and smoothed.
 
+### 2.6 Active and idle
+
+The plugin runs at two rates:
+
+- **Active** (motor in drive, see 2.3): calculations every 1 s.
+- **Idle**: after the motor has been out of drive for `idleAfterSeconds`
+  (default 30 s), or its data is stale, calculations run every 10 s. Solar
+  input, house load, SoC and today's energy stay current; match state is
+  `unknown`, the budget smoother, propeller learning and the over-budget timer
+  pause.
+- **Wake**: the first motor power or direction update that shows the motor in
+  drive switches back to active at once, without waiting for the next idle
+  tick.
+
 ## 3. Data Model
 
 - **Solar source** — id, source path, current W, how derived
@@ -236,6 +250,8 @@ squirrel under a sun, at a tiller or with a propeller), 512 px PNG.
 | staleSeconds | 10 s |
 | overBudgetDelaySeconds | 60 s |
 | Idle power threshold (in-drive) | 15 W |
+| idleAfterSeconds | 30 s |
+| Idle tick interval | 10 s |
 | Propeller model fallback (`k`, `n`) | none / 3 (target RPM hidden until learned) |
 | Propulsion path | `propulsion.main` |
 | Path overrides (solar, motor power, battery) | auto-discover |
@@ -308,6 +324,10 @@ squirrel under a sun, at a tiller or with a propeller), 512 px PNG.
 - **Use the server's History API instead of our own store**, so history lives
   in one place, survives restarts and is available to other apps (Tobi,
   2026-11-02).
+
+- **Slow down while the motor is off** (10 s idle tick, woken by motor
+  deltas) instead of stopping, so solar energy and the webapp stay current
+  at a tenth of the work (Tobi, 2026-11-02).
 
 ## 12. Open Questions
 
