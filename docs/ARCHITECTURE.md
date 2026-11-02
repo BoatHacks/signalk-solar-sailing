@@ -294,6 +294,8 @@ signalk-solar-sailing/
 ├── docs/
 │   ├── SPEC.md
 │   ├── ARCHITECTURE.md
+│   ├── IMPLEMENTATION_CHECKLIST.md
+│   ├── plans/           one plan per build step (00-roadmap.md first)
 │   ├── icon-prompt.md
 │   └── screenshots/
 ├── .github/workflows/{test.yml,publish.yml}
