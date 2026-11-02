@@ -349,8 +349,8 @@ signalk-solar-sailing/
 }
 ```
 
-Node ≥ 22 matches the plugin-CI matrix (22, 24, 26); check that the boat's
-Venus OS Signal K runs on 22 or newer before the first release.
+Node ≥ 22 matches the plugin-CI matrix (22, 24, 26); Tobi confirmed the
+boat's server meets it (2026-11-02).
 
 - Install from the Signal K app store or `npm install` in `~/.signalk`.
   Requires signalk-venus-plugin with PR #210 for RPM and target RPM; without it
