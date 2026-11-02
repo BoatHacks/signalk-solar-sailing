@@ -280,6 +280,35 @@ squirrel under a sun, at a tiller or with a propeller), 512 px PNG.
 - Publish the `plugin.solarsailing.*` paths and the over-budget notification.
 - Cockpit webapp with live values, breakdown, chart and energy today.
 - Tests for all maths with recorded data from the laserbrain logs.
+- **Signal K plugin registry score 100/100** from the first release (9.3).
+
+### 9.3 Registry requirements
+
+The [Signal K plugin registry](https://signalk.org/signalk-plugin-registry/)
+re-tests every plugin nightly and scores it out of 100. The plugin ships
+meeting every criterion:
+
+| Criterion | Points | How we meet it |
+|-----------|--------|----------------|
+| Installs, loads, activates | 20 + 15 + 15 | Starts with default config on a server with no boat data and **no network** (the harness runs under `firejail --net=none`); missing data gives `unknown`, never an exception |
+| Schema | 5 | Config schema is valid JSON Schema with defaults for every field |
+| Tests pass | 25 | `npm test` passes offline with no services |
+| Security audit | 20 | Zero runtime dependencies, committed `package-lock.json`, `npm audit --omit=dev` clean |
+| Changelog | −5 if missing | `CHANGELOG.md` at the repo root, plus a GitHub Release per version |
+| Screenshots | −5 if missing | `signalk.screenshots` in `package.json`, files under `docs/screenshots/` and listed in `files` |
+| Plugin-CI | −10 if missing | Signal K's reusable `plugin-ci.yml` workflow, pinned to a release commit SHA |
+
+Not scored, but required for the App Store listing:
+
+- `signalk.displayName`: **"Solar Sailing"**.
+- `signalk.appIcon`: `public/icon.png` (6.3).
+- `signalk.recommends`: `signalk-venus-plugin` (motor, solar, battery, DC system
+  power) and `signalk-questdb` (History API). Nothing in `signalk.requires`:
+  every source can be overridden for non-Victron boats, and without a history
+  provider only the chart is empty. `@meri-imperiumi/signalk-energy-predictor`
+  is added when the forecast input (9.2) ships.
+- GitHub repo description, homepage `https://www.npmjs.com/package/signalk-solar-sailing`,
+  and topics `signalk`, `signalk-plugin`, `marine`, `solar`, `electric-propulsion`.
 
 ### 9.2 Post-MVP / Deferred
 
@@ -342,6 +371,9 @@ squirrel under a sun, at a tiller or with a propeller), 512 px PNG.
 - **Slow down while the motor is off** (10 s idle tick, woken by motor
   deltas) instead of stopping, so solar energy and the webapp stay current
   at a tenth of the work (Tobi, 2026-11-02).
+
+- **Registry 100/100 as a release gate**, so the plugin is trusted in the App
+  Store and regressions show up in the nightly re-test (Tobi, 2026-11-02).
 
 ## 12. Open Questions
 

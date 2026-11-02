@@ -29,6 +29,10 @@ Fake `app` recording `handleMessage`, `setDefaultMetadata`,
   power > idle) runs a tick at once; duplicate wake deltas don't double-tick;
   `stop()` clears the timer and the subscription
 - a throwing step (e.g. history seed) doesn't stop the tick
+- registry activation: `start()` with the default config on an empty data
+  tree, no `getHistoryApi`, no `getDataDirPath` file and no network starts,
+  ticks and stops without an error; plugin-CI with
+  `enable-signalk-integration` is green
 - manual: run on a development Signal K server with the log fixture played
   in, check the data browser and KIP
 

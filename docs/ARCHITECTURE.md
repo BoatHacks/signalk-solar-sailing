@@ -246,14 +246,14 @@ output converts to Hz for `targetRevolutions`.
 
 | Part | Choice | Why |
 |------|--------|-----|
-| Plugin language | JavaScript ES modules (`"type": "module"`, default-export plugin factory), Node ≥ 18, Signal K server ≥ 2.14 | Same module style as the webapp, no build; the draft lib is converted from CommonJS |
+| Plugin language | JavaScript ES modules (`"type": "module"`, default-export plugin factory), Node ≥ 22, Signal K server ≥ 2.14 | Same module style as the webapp, no build; the draft lib is converted from CommonJS |
 | Type checking | JSDoc + `tsc --noEmit --checkJs` (dev only) | Types without a compile step (signalk-visuals 1) |
 | Runtime deps | none | App-store installs skip scripts; less to audit |
 | Webapp | Vanilla custom elements, ES2017 modules, hand-made SVG | Chromium 69 floor, buildless |
 | Tests | `node:test` + `node:assert` | Zero-dependency; covers lib and webapp helpers |
 | Lint | ESLint with `ecmaVersion: 2017` on `public/` | Catches syntax the plotter can't parse |
 | Screenshots | Playwright (dev only) | Day, night, phone, desktop, offline (signalk-visuals 12) |
-| CI | GitHub Actions: lint, typecheck, test | |
+| CI | `test.yml`: lint, typecheck, test on Node 22/24; `plugin-ci.yml`: Signal K's reusable workflow (`SignalK/signalk-server/.github/workflows/plugin-ci.yml@1bf8c461ca47a735fc3e8d4a1c4e8f20614aa9fd` # v2.35.1, `enable-signalk-integration: true`) | Registry scores −10 without plugin-CI; it cross-tests Linux x64/arm64, macOS, Windows on Node 22–26 and loads the plugin in a real server. Pin a release SHA, never a branch |
 | Licence | EUPL-1.2 | Tobi's choice; any dependency must be EUPL-compatible (MIT, BSD, ISC, Apache-2.0) |
 | Publish | npm OIDC trusted publishing on release | `npm-oidc-publish` / `plugin-release` skills |
 
@@ -278,6 +278,11 @@ output converts to Hz for `targetRevolutions`.
   against `^[A-Za-z0-9_.]+$` before use.
 - The webapp needs read access only. With Signal K security on and
   `allow_readonly` off, it shows the offline banner with a "login needed" note.
+- Supply chain: zero runtime dependencies, committed `package-lock.json`,
+  `npm audit --omit=dev` must be clean (registry security score), CI
+  workflows pinned to commit SHAs.
+- No network access at runtime: `start()` and the tick never fetch anything,
+  which also keeps the registry harness (run without network) green.
 - The future `put` output is opt-in, off by default, needs an explicit target
   path and a max-power clamp, and releases on stop.
 
@@ -313,13 +318,39 @@ signalk-solar-sailing/
 │   ├── plans/           one plan per build step (00-roadmap.md first)
 │   ├── icon-prompt.md
 │   └── screenshots/
-├── .github/workflows/{test.yml,publish.yml}
-├── package.json             keywords: signalk-node-server-plugin, signalk-webapp
+├── .github/workflows/{test.yml,plugin-ci.yml,publish.yml}
+├── package.json             keywords + signalk.{displayName,appIcon,screenshots,recommends}
+├── package-lock.json        committed (plugin-CI runs npm ci; npm audit needs it)
+├── CHANGELOG.md
 ├── LICENSE
 └── README.md
 ```
 
 ## 8. Deployment
+
+`package.json` (registry and App Store, SPEC 9.3):
+
+```json
+{
+  "name": "signalk-solar-sailing",
+  "type": "module",
+  "license": "EUPL-1.2",
+  "keywords": ["signalk-node-server-plugin", "signalk-webapp",
+               "signalk-category-utility", "signalk-category-electrical"],
+  "files": ["index.js", "lib/", "public/", "docs/screenshots/"],
+  "engines": { "node": ">=22" },
+  "signalk": {
+    "displayName": "Solar Sailing",
+    "appIcon": "public/icon.png",
+    "screenshots": ["./docs/screenshots/phone-day.png",
+                    "./docs/screenshots/desktop-night.png"],
+    "recommends": ["signalk-venus-plugin", "signalk-questdb"]
+  }
+}
+```
+
+Node ≥ 22 matches the plugin-CI matrix (22, 24, 26); check that the boat's
+Venus OS Signal K runs on 22 or newer before the first release.
 
 - Install from the Signal K app store or `npm install` in `~/.signalk`.
   Requires signalk-venus-plugin with PR #210 for RPM and target RPM; without it

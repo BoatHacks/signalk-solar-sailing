@@ -13,8 +13,8 @@ Follow the plugin-release skill; npm trusted publishing (OIDC) from a GitHub
 release, with the first publish done once by hand as that skill describes.
 
 ## Test Strategy
-- `npm pack --dry-run` lists only `index.js`, `lib/`, `public/`, `LICENSE`,
-  `README.md`, `package.json`
+- `npm pack --dry-run` lists only `index.js`, `lib/`, `public/`,
+  `docs/screenshots/`, `LICENSE`, `README.md`, `CHANGELOG.md`, `package.json`
 - install the packed tarball on a development server; plugin starts, webapp
   loads, icon shows in the app list
 - signalk-registry score check after publishing
@@ -28,7 +28,17 @@ release, with the first publish done once by hand as that skill describes.
 - [ ] `CHANGELOG.md`
 - [ ] `.github/workflows/publish.yml` (OIDC)
 - [ ] First manual publish, then trusted-publisher setup
-- [ ] Registry score check and fixes
+- [ ] Before tagging: registry checks 1–8 from the signalk-registry skill
+      pass locally (screenshots resolve and are in `files`, CHANGELOG entry
+      for the version, `npm audit --omit=dev` clean, plugin-CI pin is the
+      latest signalk-server release, version not yet on npm, displayName and
+      recommends set and matching the README)
+- [ ] GitHub repo metadata: description, homepage
+      `https://www.npmjs.com/package/signalk-solar-sailing`, topics `signalk`,
+      `signalk-plugin`, `marine`, `solar`, `electric-propulsion`
+- [ ] After the next nightly: published score at
+      `https://signalk.org/signalk-plugin-registry/plugins/signalk-solar-sailing.json`
+      is 100; fix and re-release if not
 
 ## Files to Create/Modify
 `public/icon.png`, `docs/icon-prompt.md`, `README.md`, `CHANGELOG.md`,

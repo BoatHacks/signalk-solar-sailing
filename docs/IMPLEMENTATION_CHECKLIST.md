@@ -34,7 +34,16 @@ done until its pure functions are covered.
       offline, and read them (signalk-visuals section 12)
 - [ ] Run against a development Signal K server, never the boat's live one
 
-## 5. Document and commit
+## 5. Registry (SPEC 9.3)
+- [ ] `start()` still works with default config, no data and no network
+- [ ] No runtime dependency added; `package-lock.json` updated and
+      `npm audit --omit=dev` clean
+- [ ] User-visible change noted under `Unreleased` in `CHANGELOG.md`
+- [ ] Screenshot files in `signalk.screenshots` still exist and match the UI
+- [ ] A new companion plugin named in the README is also in
+      `signalk.recommends` (published npm name)
+
+## 6. Document and commit
 - [ ] Update SPEC.md / ARCHITECTURE.md if the change contradicts them
 - [ ] Tick the plan's steps; mark the plan done in the roadmap
 - [ ] No temporal wording in comments ("new", "for now")

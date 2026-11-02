@@ -37,7 +37,9 @@ then elements, then layout.
 - [ ] Layout: one column with tab bar below 900 px, grid above; 48 px targets
 - [ ] `index.html`: `data-mode="day"`, theme-color `#080a0c`, icon link,
       viewport, noscript
-- [ ] Screenshots into `docs/screenshots/`
+- [ ] Screenshots into `docs/screenshots/` with the file names listed in
+      `signalk.screenshots` (`phone-day.png`, `desktop-night.png`, plus the rest
+      for the README)
 
 ## Files to Create/Modify
 `public/index.html`, `public/css/app.css`, `public/js/*.js`,
