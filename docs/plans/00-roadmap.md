@@ -15,6 +15,3 @@ MVP (SPEC 9.1) in build order. Each plan is small enough for one PR.
 
 After 6 the plugin is usable with KIP or the data browser; 7 adds the
 dashboard. Post-MVP items (SPEC 9.2) get their own plans when started.
-
-On-board check, any time: does `electrical.venus.dcPower` include the
-motordrive? (SPEC 12). If not, add it as a house-load source in plan 3.

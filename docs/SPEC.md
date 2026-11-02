@@ -47,10 +47,21 @@ the boat has a writable control point (see 9.2).
 
 ### 2.1 Power accounting
 
-Energy balance on the DC bus: `solar = battery charge power + motor + house`.
-So when battery power is measured (positive = charging), house load is derived
-as `house = solar − battery − motor`. If battery power is unavailable, a
-configured constant house load is used instead.
+House load is taken from the first source that is fresh, in this order:
+
+1. **DC system power** (configurable path, default `electrical.venus.dcPower`,
+   the Cerbo's `/Dc/System/Power`). On the reference boat it includes the
+   Curtis draw (confirmed on board, 2026-11-02), so
+   `house = dcSystem − motor`. A setting "DC system power includes the
+   motor" (default on) covers installs where it doesn't (`house = dcSystem`).
+2. **Energy balance** on the DC bus: `solar = battery charge power + motor +
+   house`, so with battery power measured (positive = charging),
+   `house = solar − battery − motor`.
+3. **Configured constant** house load.
+
+House load is clamped at ≥ 0. The Cerbo figure comes first because it is one
+consistent, already-signed value from the GX instead of a sum of three
+readings with their own timestamps and sign conventions.
 
 ### 2.2 SoC bias
 
@@ -108,7 +119,8 @@ The plugin runs at two rates:
 - **Motor** — id, power W (from `power`, else `|voltage × current|`), RPM,
   direction, temperatures, gear ratio (optional), last update.
 - **Battery** — id, SoC (ratio), power W (charging positive), last update.
-- **Snapshot** — solar input, house load (and whether derived or configured),
+- **Snapshot** — solar input, house load (and its source: `dcSystem`,
+  `balance` or `config`),
   SoC bias, solar budget, motor power, balance, match state, target RPM,
   energy today (solar and motor, J).
 - **History** — not stored by this plugin; read from the Signal K History API
@@ -147,7 +159,7 @@ All under `plugin.solarsailing.` (self vessel), with `meta.units`:
 | Path | Units | Meaning |
 |------|-------|---------|
 | `solarPower` | W | Solar input |
-| `houseLoad` | W | Derived or configured house load |
+| `houseLoad` | W | House load (DC system, energy balance or configured) |
 | `socBias` | W | SoC bias applied |
 | `budget` | W | Solar budget (smoothed) |
 | `motorPower` | W | Motor draw |
@@ -243,6 +255,8 @@ squirrel under a sun, at a tiller or with a propeller), 512 px PNG.
 | Battery power sign | charging positive (invertible) |
 | Max motor power | none (no clamp; budget bar scales to the day's peak) |
 | Forward direction value | none (direction shown raw until set) |
+| DC system power path | `electrical.venus.dcPower` |
+| DC system power includes the motor | on |
 | Fallback house load | 0 W |
 | socLow / socHigh | 50 % / 90 % |
 | chargeReserveW / batteryAssistW | 100 W / 0 W |
@@ -300,8 +314,8 @@ squirrel under a sun, at a tiller or with a propeller), 512 px PNG.
   automatic limit on the only propulsion is a safety question worth taking slowly.
 - **Sum chargers, Cerbo total as fallback.** Works with any MPPT brand and
   gives a per-array view; still works on a Cerbo-only setup.
-- **Derive house load from the battery balance** rather than requiring every
-  consumer to be metered.
+- **House load from the Cerbo's DC system power first, battery balance
+  second**, rather than requiring every consumer to be metered.
 - **Read on a tick, don't count deltas**, so duplicated or bursty deltas can't
   skew values or energy totals.
 - **Serve webapp data via the resources API**, because plugin routes need an
@@ -334,8 +348,3 @@ squirrel under a sun, at a tiller or with a propeller), 512 px PNG.
 None blocking. Three boat facts are deliberately left as configuration rather
 than hard-coded (section 8): Curtis max continuous power, the battery bank id
 and its power sign, and which `direction` value means forward.
-
-- **Cerbo DC system power.** The venus plugin publishes `electrical.venus.dcPower`
-  (Cerbo `/Dc/System/Power`). If it excludes the Curtis motordrive it is a
-  measured house load and beats the derived one; the 2026-10-25 log only
-  records the motordrive, so this needs a check on board.

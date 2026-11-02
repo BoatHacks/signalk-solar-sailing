@@ -71,6 +71,8 @@ Turns the data tree into readings (SPEC 4). Each tick it:
   field is a plain text path validated like the other overrides (section 6);
 - reads battery SoC and power from the configured bank (first
   `electrical.batteries.*` by default), applying the configured sign;
+- reads DC system power from the configured path (default
+  `electrical.venus.dcPower`);
 - marks a reading stale when its timestamp is older than `staleSeconds`.
 
 Reading the current value on a tick, rather than listening to deltas, is what
@@ -85,9 +87,10 @@ Stateful but I/O-free. Input: readings and `now`. Output: a `Snapshot`
 (section 3). Per tick:
 
 1. Solar = sum of fresh sources, or `undefined` if none are fresh.
-2. House load = `solar − battery − motor` when all three are fresh, clamped at
-   ≥ 0 and smoothed with the same time constant; else the configured fallback
-   (SPEC 2.1). The snapshot records which one was used.
+2. House load from the first fresh source (SPEC 2.1): DC system power
+   (`dcSystem − motor`, or `dcSystem` when the "includes the motor" setting is
+   off), else `solar − battery − motor`, else the configured value. Clamped at
+   ≥ 0 and smoothed with the same time constant; `houseSource` records which.
 3. SoC bias from `batteryBias` (SPEC 2.2).
 4. Budget = smoothed(`solar − house + bias`), clamped to `[0, maxMotorPowerW]`.
 5. Balance, match state with `verdict` (SPEC 2.3); `unknown` when not in drive
@@ -230,7 +233,7 @@ JSDoc typedefs in `lib/types.js`, checked by `tsc --noEmit`.
  *    motor?: MotorReading, battery?: BatteryReading }} Readings */
 /** @typedef {'matched'|'over'|'under'|'unknown'} MatchState */
 /** @typedef {{ t: number, solarW?: number, houseW?: number,
- *    houseDerived: boolean, socBiasW: number, budgetW?: number,
+ *    houseSource: 'dcSystem'|'balance'|'config', socBiasW: number, budgetW?: number,
  *    motorW?: number, balanceW?: number, matchState: MatchState,
  *    targetRpm?: number, targetShaftRpm?: number, alarm: boolean,
  *    solarEnergyJ: number, motorEnergyJ: number }} Snapshot */

@@ -24,6 +24,8 @@ Fixtures built from the 2026-10-25 laserbrain log (motordrive 99 and
   Hz → rpm, `gearRatio` only when finite > 0
 - `inDrive`: direction ≠ 0 and power > idle; no direction → power only
 - battery: first bank by default, configured id, sign inversion
+- DC system power from the configured path (default `electrical.venus.dcPower`),
+  stale like any other value
 - override paths replace discovery one by one
 
 ## Implementation Steps

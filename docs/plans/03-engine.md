@@ -15,8 +15,11 @@ Stateful class, no I/O. Reuses the draft `Smoother`, `batteryBias`, `clamp`,
 by plan 4.
 
 ## Test Strategy
-- house load derived when solar, battery and motor are fresh, clamped ≥ 0;
-  configured fallback otherwise, flagged in the snapshot
+- house load source order: `dcSystem − motor` when both fresh (or `dcSystem`
+  with "includes motor" off), else `solar − battery − motor`, else config;
+  clamped ≥ 0; `houseSource` set accordingly
+- stale DC system power falls through to the balance without a jump larger
+  than the smoothing allows
 - SoC bias at ≤ low, ≥ high, midpoint, unknown
 - budget clamped to `[0, maxMotorPowerW]`; no max → no upper clamp
 - smoothing: a 1 s cloud dip barely moves the budget; a 2 min one does
