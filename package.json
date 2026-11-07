@@ -1,0 +1,55 @@
+{
+  "name": "signalk-solar-sailing",
+  "version": "0.1.0",
+  "description": "Signal K plugin that matches electric motor draw to solar input: solar budget, match state and target RPM.",
+  "type": "module",
+  "main": "index.js",
+  "license": "EUPL-1.2",
+  "author": "BoatHacks",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BoatHacks/signalk-solar-sailing.git"
+  },
+  "homepage": "https://github.com/BoatHacks/signalk-solar-sailing#readme",
+  "bugs": "https://github.com/BoatHacks/signalk-solar-sailing/issues",
+  "keywords": [
+    "signalk-node-server-plugin",
+    "signalk-webapp",
+    "signalk-category-utility",
+    "signalk-category-electrical"
+  ],
+  "files": [
+    "index.js",
+    "lib/",
+    "public/",
+    "docs/screenshots/",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "signalk": {
+    "displayName": "Solar Sailing",
+    "appIcon": "public/icon.png",
+    "screenshots": [
+      "./docs/screenshots/phone-day.png",
+      "./docs/screenshots/desktop-night.png"
+    ],
+    "recommends": [
+      "signalk-venus-plugin",
+      "signalk-questdb"
+    ]
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.14.0",
+    "typescript": "^5.9.3"
+  }
+}

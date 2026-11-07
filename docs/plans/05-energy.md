@@ -22,9 +22,9 @@ for `...EnergyToday:last` from local midnight to now, and returns the seed or
   is from before midnight, `null`, throws, or the API is absent
 
 ## Implementation Steps
-- [ ] Trim `energy.js`, add the offset-aware day key
-- [ ] `lib/history.js` seed
-- [ ] Tests above
+- [x] Trim `energy.js`, add the offset-aware day key
+- [x] `lib/history.js` seed
+- [x] Tests above
 
 ## Files to Create/Modify
 `lib/energy.js`, `lib/history.js`, `test/energy.test.js`,

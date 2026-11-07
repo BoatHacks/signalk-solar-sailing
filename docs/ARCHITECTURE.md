@@ -68,7 +68,9 @@ Turns the data tree into readings (SPEC 4). Each tick it:
   `electrical.motordrive.*` node, via `motorPowerFromNode`;
 - reads RPM, direction, temperatures and `transmission.gearRatio` (if present)
   from the configured propulsion path, default `propulsion.main`; the admin UI
-  field is a plain text path validated like the other overrides (section 6);
+  field is a plain text path validated like the other overrides (section 6).
+  A stale direction counts as absent (power alone decides); the gear ratio is
+  static configuration and never stale;
 - reads battery SoC and power from the configured bank (first
   `electrical.batteries.*` by default), applying the configured sign;
 - reads DC system power from the configured path (default
@@ -93,6 +95,9 @@ Stateful but I/O-free. Input: readings and `now`. Output: a `Snapshot`
    ≥ 0 and smoothed with the same time constant; `houseSource` records which.
 3. SoC bias from `batteryBias` (SPEC 2.2).
 4. Budget = smoothed(`solar − house + bias`), clamped to `[0, maxMotorPowerW]`.
+   While idle the smoother is paused and the raw value is published, so the
+   budget shows the current sun before the motor starts; the smoother restarts
+   from the current value on the switch to active.
 5. Balance, match state with `verdict` (SPEC 2.3); `unknown` when not in drive
    or when solar or motor is missing.
 6. Target RPM from the propeller model, or `undefined` until it is learned;
@@ -111,7 +116,8 @@ output.
 Learns `k` and `n` in `P = k · rpmⁿ` (SPEC 2.4).
 
 - **Sample** only in steady state: in drive, RPM above a floor (200 rpm), and RPM
-  and power each within ±5 % of their mean over the last 10 s.
+  and power each within ±5 % of their mean over the last 10 s. At most one
+  sample every 5 s, and at most 30 per bucket.
 - **Fit**: keep the last 300 accepted (rpm, P) pairs in a ring buffer, bucketed
   by 25 rpm so one long cruise at a single speed can't crowd out the rest.
   Fit `ln P = ln k + n · ln rpm` with a robust line fit (Theil–Sen: median of
@@ -136,7 +142,11 @@ On start, `lib/history.js` calls `app.getHistoryApi?.()` (optional; absent on
 older servers or with no provider) and requests
 `plugin.solarsailing.solarEnergyToday:last` and `motorEnergyToday:last` from
 local midnight to now. A value found seeds the counter; any error or `null`
-leaves it at 0. This is one request per start, never on the tick.
+leaves it at 0. This is one request per start, never on the tick, and the
+tick waits for it at most 5 s. The History API takes `Temporal.Instant`
+values; Node has no global `Temporal` before 26 and the plugin ships no
+polyfill, so it passes a minimal instant-like object (`epochMilliseconds`,
+ISO `toString`) unless a global `Temporal` exists.
 
 Local midnight comes from `environment.time.timezoneOffset` when present
 (same rule as the webapp), else UTC midnight, not the server's TZ.
@@ -149,10 +159,13 @@ rate low on the Cerbo. Raises and clears
 `notifications.solarsailing.overBudget` from the snapshot's
 `alarm` flag, sending a notification only on a state change.
 
-Metadata is registered once at start with `app.setDefaultMetadata` (or a
-meta delta on older servers): `units` (`W`, `J`, `Hz`, `ratio`),
-`displayUnits` categories so the webapp and KIP show W/kW, kWh and RPM, and a
-timeout of about 15 s so a dead plugin is visible as stale.
+Metadata is registered once at start: a meta delta with `units` (`W`, `J`,
+`Hz`), a description and a 15 s `timeout`, so a dead plugin is visible as
+stale; then, where the server has it, `app.setDefaultMetadata` with
+`displayUnits` (`power`/`W`, `energy`/`Wh`, `frequency`/`rpm`) so the webapp
+and KIP convert. `Wh` rather than `kWh`, because the server's unit
+definitions have no `J → kWh` conversion. Unknown values are published as
+`null`, never as a stale number or 0.
 
 ### 2.7 Output interface (post-MVP hook)
 
@@ -229,13 +242,18 @@ JSDoc typedefs in `lib/types.js`, checked by `tsc --noEmit`.
  *    stale: boolean }} MotorReading */
 /** @typedef {{ id: string, soc?: number, watts?: number, time?: number,
  *    stale: boolean }} BatteryReading */
+/** @typedef {{ path: string, watts: number, time?: number,
+ *    stale: boolean }} PowerReading */
 /** @typedef {{ solar: SolarReading[], solarFallback: boolean,
- *    motor?: MotorReading, battery?: BatteryReading }} Readings */
+ *    motor?: MotorReading, battery?: BatteryReading, dcSystem?: PowerReading,
+ *    timezoneOffsetMin?: number }} Readings */
 /** @typedef {'matched'|'over'|'under'|'unknown'} MatchState */
-/** @typedef {{ t: number, solarW?: number, houseW?: number,
+/** @typedef {{ t: number, mode: 'active'|'idle', inDrive: boolean,
+ *    solarW?: number, houseW?: number,
  *    houseSource: 'dcSystem'|'balance'|'config', socBiasW: number, budgetW?: number,
- *    motorW?: number, balanceW?: number, matchState: MatchState,
- *    targetRpm?: number, targetShaftRpm?: number, alarm: boolean,
+ *    motorW?: number, motorSmoothedW?: number, balanceW?: number,
+ *    matchState: MatchState, targetRpm?: number, targetShaftRpm?: number,
+ *    gearRatio?: number, alarm: boolean,
  *    solarEnergyJ: number, motorEnergyJ: number }} Snapshot */
 ```
 
@@ -253,7 +271,7 @@ output converts to Hz for `targetRevolutions`.
 | Tests | `node:test` + `node:assert` | Zero-dependency; covers lib and webapp helpers |
 | Lint | ESLint with `ecmaVersion: 2017` on `public/` | Catches syntax the plotter can't parse |
 | Screenshots | Playwright (dev only) | Day, night, phone, desktop, offline (signalk-visuals 12) |
-| CI | `test.yml`: lint, typecheck, test on Node 22/24; `plugin-ci.yml`: Signal K's reusable workflow (`SignalK/signalk-server/.github/workflows/plugin-ci.yml@1bf8c461ca47a735fc3e8d4a1c4e8f20614aa9fd` # v2.35.1, `enable-signalk-integration: true`) | Registry scores −10 without plugin-CI; it cross-tests Linux x64/arm64, macOS, Windows on Node 22–26 and loads the plugin in a real server. Pin a release SHA, never a branch |
+| CI | `test.yml`: lint, typecheck, test on Node 22/24; `plugin-ci.yml`: Signal K's reusable workflow (`SignalK/signalk-server/.github/workflows/plugin-ci.yml@92a2405cebfb94f84a78ef35183b75f3cb098150` # v2.37.0, `enable-signalk-integration: true`) | Registry scores −10 without plugin-CI; it cross-tests Linux x64/arm64, macOS, Windows on Node 22–26 and loads the plugin in a real server. Pin a release SHA, never a branch |
 | Licence | EUPL-1.2 | Tobi's choice; any dependency must be EUPL-compatible (MIT, BSD, ISC, Apache-2.0) |
 | Publish | npm OIDC trusted publishing on release | `npm-oidc-publish` / `plugin-release` skills |
 

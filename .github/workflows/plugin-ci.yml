@@ -1,0 +1,16 @@
+name: Signal K Plugin CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  plugin-ci:
+    # Pinned to a signalk-server release commit, never a branch (SPEC 9.3).
+    uses: SignalK/signalk-server/.github/workflows/plugin-ci.yml@92a2405cebfb94f84a78ef35183b75f3cb098150 # v2.37.0
+    with:
+      enable-signalk-integration: true

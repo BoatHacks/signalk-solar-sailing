@@ -34,9 +34,9 @@ by plan 4.
   `matched` while solar is unknown
 
 ## Implementation Steps
-- [ ] Trim `matcher.js` to the reused helpers
-- [ ] `lib/engine.js` with the seven steps of ARCHITECTURE 2.3
-- [ ] Tests above, including a log replay helper in `test/helpers/`
+- [x] Trim `matcher.js` to the reused helpers
+- [x] `lib/engine.js` with the seven steps of ARCHITECTURE 2.3
+- [x] Tests above, including a log replay helper in `test/helpers/`
 
 ## Files to Create/Modify
 `lib/matcher.js`, `lib/engine.js`, `test/engine.test.js`,

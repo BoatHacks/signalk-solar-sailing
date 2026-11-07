@@ -27,11 +27,11 @@ fit `k` alone; clamp `n` to 1–3.5. Ready after 30 samples.
   with `n` in 1–3.5, never NaN
 
 ## Implementation Steps
-- [ ] `lib/propeller.js`
-- [ ] Persistence helpers: read/write `<dataDir>/propeller.json` (called from
+- [x] `lib/propeller.js`
+- [x] Persistence helpers: read/write `<dataDir>/propeller.json` (called from
       `index.js` in plan 6: on start, every 5 min, on stop)
-- [ ] Config action "reset learned propeller"
-- [ ] Engine step 6 uses the model; shaft RPM = target ÷ gear ratio
+- [x] Config action "reset learned propeller"
+- [x] Engine step 6 uses the model; shaft RPM = target ÷ gear ratio
 
 ## Files to Create/Modify
 `lib/propeller.js`, `lib/engine.js`, `test/propeller.test.js`
