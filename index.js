@@ -1,7 +1,7 @@
 // Plugin entry: lifecycle and tick scheduler (ARCHITECTURE 2.1).
 // Only this file, lib/outputs/, lib/resources.js and lib/history.js touch `app`.
 
-import { readFile, writeFile, rm } from 'node:fs/promises'
+import { readFile, writeFile, rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { resolveConfig, schema } from './lib/config.js'
 import { readSources } from './lib/sources.js'
@@ -23,6 +23,8 @@ const PROPELLER_FILE = 'propeller.json'
 export default function solarSailing (app) {
   /** @type {any} */
   let state
+  /** Saves run one after another, and start waits for the last one. */
+  let saving = Promise.resolve()
 
   /** @param {string} msg */
   const error = (msg) => { if (app.error) app.error(msg) }
@@ -120,7 +122,7 @@ export default function solarSailing (app) {
       for (const u of s.unsubscribes) guard('unsubscribe', u)
       s.unsubscribes = []
       for (const o of s.outputs) guard(`${o.name} stop`, () => o.stop())
-      saveModel(s)
+      return saveModel(s)
     }
   }
 
@@ -130,6 +132,7 @@ export default function solarSailing (app) {
    */
   async function init (s, options) {
     const { config, propeller, engine } = s
+    await saving
     if (s.propellerFile) {
       if (config.resetPropeller) {
         await rm(s.propellerFile, { force: true }).catch((err) => error(`propeller reset: ${err.message}`))
@@ -162,14 +165,25 @@ export default function solarSailing (app) {
     }
   }
 
-  /** @param {any} s */
-  async function saveModel (s) {
-    if (!s.propellerFile || s.propeller.samples.length === 0) return
-    try {
-      await writeFile(s.propellerFile, JSON.stringify(s.propeller.toJSON()))
-    } catch (err) {
-      error(`propeller save: ${/** @type {Error} */ (err).message}`)
-    }
+  /**
+   * Write to a temporary file and rename it, so a restart or crash never
+   * leaves a half-written model behind.
+   * @param {any} s
+   * @returns {Promise<void>}
+   */
+  function saveModel (s) {
+    if (!s.propellerFile || s.propeller.samples.length === 0) return saving
+    const file = s.propellerFile
+    const json = JSON.stringify(s.propeller.toJSON())
+    saving = saving.then(async () => {
+      try {
+        await writeFile(`${file}.tmp`, json)
+        await rename(`${file}.tmp`, file)
+      } catch (err) {
+        error(`propeller save: ${/** @type {Error} */ (err).message}`)
+      }
+    })
+    return saving
   }
 
   /**

@@ -181,8 +181,7 @@ test('propeller model persisted on stop and reset by config', async () => {
   await waitFor(() => app.messages.length > 1)
   status = await statusOf(app)
   assert.equal(status.propeller.ready, true)
-  p.stop()
-  await flush()
+  await p.stop()
   assert.equal(JSON.parse(await readFile(file, 'utf8')).samples.length, 40)
 
   const before = app.messages.length
