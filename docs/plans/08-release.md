@@ -13,8 +13,8 @@ Follow the plugin-release skill; npm trusted publishing (OIDC) from a GitHub
 release, with the first publish done once by hand as that skill describes.
 
 ## Notes
-The icon is a hand-drawn flat SVG (`docs/icon.svg`) rendered to PNG, a
-stand-in until one is made with the image model from `docs/icon-prompt.md`.
+The icon was made by Tobi with an image model (a squirrel next to a scale
+weighing the sun against a propeller) and resized to 512 px.
 The remaining steps (first manual publish, trusted publisher, repo metadata,
 tag, registry score) need Tobi's npm and GitHub accounts.
 
@@ -26,8 +26,8 @@ tag, registry score) need Tobi's npm and GitHub accounts.
 - signalk-registry score check after publishing
 
 ## Implementation Steps
-- [x] App icon: golden squirrel, four flat colours on navy, 512 px PNG at
-      `public/icon.png`; prompt saved in `docs/icon-prompt.md`
+- [x] App icon: squirrel and a scale weighing sun against propeller, flat
+      gold and white on navy, 512 px PNG at `public/icon.png`
 - [x] README: what it does, requirements (server ≥ 2.14, venus plugin with
       PR #210, a History API provider), config, paths, screenshots, the
       `propulsion.main` vs `propulsion.99` note
@@ -47,5 +47,5 @@ tag, registry score) need Tobi's npm and GitHub accounts.
       is 100; fix and re-release if not
 
 ## Files to Create/Modify
-`public/icon.png`, `docs/icon-prompt.md`, `README.md`, `CHANGELOG.md`,
+`public/icon.png`, `README.md`, `CHANGELOG.md`,
 `.github/workflows/publish.yml`, `package.json`

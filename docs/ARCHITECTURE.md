@@ -334,7 +334,6 @@ signalk-solar-sailing/
 │   ├── ARCHITECTURE.md
 │   ├── IMPLEMENTATION_CHECKLIST.md
 │   ├── plans/           one plan per build step (00-roadmap.md first)
-│   ├── icon-prompt.md
 │   └── screenshots/
 ├── .github/workflows/{test.yml,plugin-ci.yml,publish.yml}
 ├── package.json             keywords + signalk.{displayName,appIcon,screenshots,recommends}
