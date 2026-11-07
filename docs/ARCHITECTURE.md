@@ -215,7 +215,7 @@ Built to the signalk-visuals skill with a **Chromium 69 floor** (SPEC 11).
     `plugin.solarsailing.*` (period 1000 ms), `environment.mode` and
     `environment.time.timezoneOffset` (5000 ms); exponential backoff 1 s→60 s
     with 20 % jitter; parses deltas defensively.
-  - `api.js` — fetches `status` once on load (breakdown) and the chart window
+  - `api.js` — polls `status` every 5 s while visible (breakdown) and fetches the chart window
     from `/signalk/v2/api/history/values` (solar, motor and budget paths,
     `resolution` scaled to the window) every 60 s, paused while
     `document.hidden`. A 404/501 or empty provider list shows "no history
@@ -325,7 +325,7 @@ signalk-solar-sailing/
 │   ├── index.html
 │   ├── icon.png             512 px, = signalk.appIcon
 │   ├── css/app.css
-│   └── js/{app,stream,api,state,units,time}.js + elements/*.js
+│   └── js/{app,stream,api,state,units,time,backoff,context,view}.js + elements/*.js
 ├── test/
 │   ├── fixtures/curtis-2026-10-25.json   trimmed from laserbrain logs
 │   └── *.test.js
@@ -355,7 +355,8 @@ signalk-solar-sailing/
   "license": "EUPL-1.2",
   "keywords": ["signalk-node-server-plugin", "signalk-webapp",
                "signalk-category-utility", "signalk-category-electrical"],
-  "files": ["index.js", "lib/", "public/", "docs/screenshots/"],
+  "files": ["index.js", "lib/", "public/", "docs/screenshots/phone-day.png",
+            "docs/screenshots/desktop-night.png", "CHANGELOG.md"],
   "engines": { "node": ">=22" },
   "signalk": {
     "displayName": "Solar Sailing",

@@ -10,8 +10,8 @@ MVP (SPEC 9.1) in build order. Each plan is small enough for one PR.
 | 4 | [Propeller model](04-propeller.md) | learned `k`, `n`, target RPM | 3 | done |
 | 5 | [Energy today](05-energy.md) | counters, History API seed | 3 | done |
 | 6 | [Outputs and wiring](06-outputs.md) | paths, metadata, notification, resources, `index.js` | 3–5 | done |
-| 7 | [Webapp](07-webapp.md) | cockpit/plotter dashboard | 6 | todo |
-| 8 | [Release](08-release.md) | icon, README, screenshots, npm publish | 7 | todo |
+| 7 | [Webapp](07-webapp.md) | cockpit/plotter dashboard | 6 | done |
+| 8 | [Release](08-release.md) | icon, README, screenshots, npm publish | 7 | in progress |
 
 After 6 the plugin is usable with KIP or the data browser; 7 adds the
 dashboard. Post-MVP items (SPEC 9.2) get their own plans when started.

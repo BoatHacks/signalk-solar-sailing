@@ -9,8 +9,8 @@ It is **advisory**: it publishes a solar budget, a match state and a target RPM,
 and raises a notification when the motor stays over budget. It never commands
 the motor.
 
-> Status: the plugin computes and publishes everything below. The cockpit
-> webapp, app icon and screenshots follow in the next release.
+![Phone, day mode](docs/screenshots/phone-day.png)
+![Nav station, night mode](docs/screenshots/desktop-night.png)
 
 ## Requirements
 
@@ -38,6 +38,34 @@ reads the current values and computes:
   `unknown` when the motor is not in drive or data is missing.
 - **Target RPM**: from a propeller model `P = k · rpmⁿ` that it learns while
   you motor at steady speeds.
+
+## Webapp
+
+The plugin serves a cockpit dashboard at `/signalk-solar-sailing/` (it also
+appears in the server's webapp list):
+
+- match state as a word and icon with the balance, and a motor-vs-budget bar
+- solar, motor, target RPM (and shaft RPM with a gear ratio), house load
+- energy today, a 3 / 6 / 24 h chart, and a per-source breakdown
+
+It follows the boat's dark "tactical console" style: dark in day and night
+mode (from `environment.mode`), state colours only on fresh data and grey with
+a dash when data is missing or stale, single column with tabs on a phone, a
+grid on the nav-station screen. It needs nothing from the internet and runs on
+**Chromium 69**, so it also works in a Navico / B&G chart plotter's browser:
+open the same URL there.
+
+With Signal K security on, enable read-only access (`allow_readonly`) or sign
+in; otherwise the page shows the offline banner.
+
+| | |
+|---|---|
+| ![Desktop, day](docs/screenshots/desktop-day.png) | ![Phone, chart](docs/screenshots/phone-chart.png) |
+| ![Phone, sources](docs/screenshots/phone-sources.png) | ![Phone, offline](docs/screenshots/phone-offline.png) |
+
+The screenshots were taken on a development server with simulated data; the
+chart history is synthetic. `desktop-no-history.png` shows the chart without
+a history provider.
 
 ## Published paths
 
@@ -83,6 +111,8 @@ npm install
 npm test
 npm run lint
 npm run typecheck
+# webapp screenshots against a development server with simulated data
+node scripts/screenshots.mjs http://localhost:3000/signalk-solar-sailing/ desktop-day desktop history
 ```
 
 Design documents: [SPEC](docs/SPEC.md), [ARCHITECTURE](docs/ARCHITECTURE.md),

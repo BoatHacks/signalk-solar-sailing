@@ -9,7 +9,12 @@
     "strict": true,
     "noImplicitAny": false,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["index.js", "lib/**/*.js"]
+  "include": [
+    "index.js",
+    "lib/**/*.js"
+  ]
 }

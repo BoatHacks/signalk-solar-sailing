@@ -18,3 +18,8 @@ All notable changes to this project are documented here. The format follows
 - Published `plugin.solarsailing.*` paths with metadata, the
   `notifications.solarsailing.overBudget` notification and the
   `solar-sailing/status` resource.
+- Cockpit webapp: match state, motor-vs-budget bar, live values, energy
+  today, 3 / 6 / 24 h chart from the History API and a per-source breakdown.
+  Day and night mode, phone and nav-station layouts, offline banner, works on
+  Chromium 69 chart plotters.
+- App icon, screenshots and the npm publish workflow.

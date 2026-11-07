@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-mode="day">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080a0c">
+<title>Solar Sailing</title>
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="css/app.css">
+<script type="module" src="js/app.js"></script>
+</head>
+<body data-tab="live">
+<noscript><p class="noscript">Solar Sailing needs JavaScript.</p></noscript>
+<ss-topbar></ss-topbar>
+<main class="page">
+  <ss-offline></ss-offline>
+  <div class="layout">
+    <div class="live">
+      <ss-match></ss-match>
+      <ss-budget-bar></ss-budget-bar>
+      <nav class="tabs" aria-label="Sections">
+        <a href="#live">Values</a><a href="#chart">Chart</a><a href="#sources">Sources</a>
+      </nav>
+      <div class="values tab-live">
+        <ss-value label="Solar" key="solarPower" hint="All chargers"></ss-value>
+        <ss-value label="Motor" key="motorPower" hint="Drive draw"></ss-value>
+        <ss-value label="Target RPM" key="targetRevolutions" sub-key="targetShaftRevolutions" sub-label="Shaft" hint="Learned while motoring"></ss-value>
+        <ss-value label="House load" key="houseLoad" sub-key="socBias" sub-label="SoC bias" hint="Everything but the motor"></ss-value>
+      </div>
+      <ss-energy class="tab-live"></ss-energy>
+    </div>
+    <div class="side">
+      <ss-chart class="tab-chart"></ss-chart>
+      <ss-sources class="tab-sources"></ss-sources>
+    </div>
+  </div>
+</main>
+</body>
+</html>

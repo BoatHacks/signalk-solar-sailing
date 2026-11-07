@@ -22,7 +22,8 @@
     "index.js",
     "lib/",
     "public/",
-    "docs/screenshots/",
+    "docs/screenshots/phone-day.png",
+    "docs/screenshots/desktop-night.png",
     "CHANGELOG.md"
   ],
   "engines": {
@@ -31,7 +32,7 @@
   "scripts": {
     "test": "node --test \"test/**/*.test.js\"",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.webapp.json"
   },
   "signalk": {
     "displayName": "Solar Sailing",
