@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#002058"/>
+  <!-- sun -->
+  <g fill="#FDBB15">
+    <circle cx="412" cy="100" r="46"/>
+    <g stroke="#FDBB15" stroke-width="16" stroke-linecap="square"><line x1="478" y1="100" x2="496" y2="100"/><line x1="459" y1="147" x2="471" y2="159"/><line x1="412" y1="166" x2="412" y2="184"/><line x1="365" y1="147" x2="353" y2="159"/><line x1="346" y1="100" x2="328" y2="100"/><line x1="365" y1="53" x2="353" y2="41"/><line x1="412" y1="34" x2="412" y2="16"/><line x1="459" y1="53" x2="471" y2="41"/></g>
+  </g>
+  <!-- squirrel: tail -->
+  <path fill="#FDBB15" d="M200 430 C 90 440 40 360 60 270 C 78 190 150 150 205 175 C 250 196 245 255 205 262 C 175 268 160 240 178 226 C 120 230 110 330 170 360 C 200 375 215 400 200 430 Z"/>
+  <!-- body -->
+  <ellipse cx="270" cy="370" rx="72" ry="88" fill="#FDBB15"/>
+  <!-- head -->
+  <circle cx="320" cy="262" r="56" fill="#FDBB15"/>
+  <!-- ear tufts -->
+  <path fill="#FDBB15" d="M282 228 L 290 160 L 322 214 Z"/>
+  <path fill="#FDBB15" d="M318 214 L 345 158 L 356 222 Z"/>
+  <!-- snout -->
+  <ellipse cx="370" cy="278" rx="22" ry="18" fill="#FDBB15"/>
+  <!-- eye and nose -->
+  <circle cx="338" cy="252" r="9" fill="#002058"/>
+  <circle cx="390" cy="272" r="6" fill="#002058"/>
+  <!-- paws holding a white propeller -->
+  <g transform="translate(352 352)">
+    <ellipse cx="0" cy="-34" rx="14" ry="34" fill="#FFFFFF"/>
+    <ellipse cx="0" cy="-34" rx="14" ry="34" fill="#FFFFFF" transform="rotate(120)"/>
+    <ellipse cx="0" cy="-34" rx="14" ry="34" fill="#FFFFFF" transform="rotate(240)"/>
+    <circle r="12" fill="#FDBB15"/>
+  </g>
+  <ellipse cx="322" cy="340" rx="24" ry="13" fill="#FDBB15" transform="rotate(-20 322 340)"/>
+  <!-- feet -->
+  <ellipse cx="250" cy="456" rx="40" ry="14" fill="#FDBB15"/>
+  <ellipse cx="318" cy="456" rx="34" ry="14" fill="#FDBB15"/>
+</svg>

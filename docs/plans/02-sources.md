@@ -13,6 +13,11 @@ propulsion, battery), with discovery, overrides and staleness.
 `app.getSelfPath('')`-style subtrees, so tests use plain objects. Built on the
 draft `power.js` (`solarPowerFromNode`, `motorPowerFromNode`, `leafTime`).
 
+## Notes
+The recorded Signal K stream in the 2026-10-25 log carries no
+`propulsion.99.direction`, so the fixture takes direction from the raw MQTT
+`Motor/Direction` topic in the same log. A stale direction counts as absent.
+
 ## Test Strategy
 Fixtures built from the 2026-10-25 laserbrain log (motordrive 99 and
 `propulsion.99`) plus hand-made MPPT and battery trees:
@@ -29,12 +34,12 @@ Fixtures built from the 2026-10-25 laserbrain log (motordrive 99 and
 - override paths replace discovery one by one
 
 ## Implementation Steps
-- [ ] Extend `power.js` with a node-only (non-recursive) value read
-- [ ] `lib/sources.js`: solar, motor, propulsion, battery readers
-- [ ] Staleness from leaf timestamps vs `staleSeconds`
-- [ ] Fixture file `test/fixtures/curtis-2026-10-25.json` (trimmed, no
+- [x] Extend `power.js` with a node-only (non-recursive) value read
+- [x] `lib/sources.js`: solar, motor, propulsion, battery readers
+- [x] Staleness from leaf timestamps vs `staleSeconds`
+- [x] Fixture file `test/fixtures/curtis-2026-10-25.json` (trimmed, no
       hostnames or ids beyond the motordrive instance)
-- [ ] Tests above
+- [x] Tests above
 
 ## Files to Create/Modify
 `lib/power.js`, `lib/sources.js`, `test/sources.test.js`,

@@ -17,6 +17,13 @@ provider `solar-sailing` with read-only `status`. `index.js` runs the 1 s tick
 with each step in its own `try/catch`, loads/saves the propeller model, seeds
 energy, and publishes `matchState: unknown` on stop.
 
+## Notes
+Checked by hand on signalk-server 2.35.1 (2026-11-07): the packed plugin
+loads as an ES module, publishes all paths with metadata and `displayUnits`,
+serves `resources/solar-sailing/status`, and drops to `idle` / `unknown`
+when the fed data goes stale. Data was fed over the WebSocket, not the log
+fixture.
+
 ## Test Strategy
 Fake `app` recording `handleMessage`, `setDefaultMetadata`,
 `registerResourceProvider` calls:
@@ -37,10 +44,10 @@ Fake `app` recording `handleMessage`, `setDefaultMetadata`,
   in, check the data browser and KIP
 
 ## Implementation Steps
-- [ ] `lib/outputs/advisory.js`
-- [ ] `lib/resources.js`
-- [ ] `index.js` lifecycle and tick scheduler (`setTimeout` chain, wake subscription)
-- [ ] Tests above; manual run noted in the PR
+- [x] `lib/outputs/advisory.js`
+- [x] `lib/resources.js`
+- [x] `index.js` lifecycle and tick scheduler (`setTimeout` chain, wake subscription)
+- [x] Tests above; manual run noted in the PR
 
 ## Files to Create/Modify
 `index.js`, `lib/outputs/advisory.js`, `lib/resources.js`,
