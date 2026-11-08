@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-08
+
 ### Added
 
 - Plugin scaffold: ES module plugin, config schema with defaults, EUPL-1.2.
@@ -23,3 +25,6 @@ All notable changes to this project are documented here. The format follows
   Day and night mode, phone and nav-station layouts, offline banner, works on
   Chromium 69 chart plotters.
 - App icon, screenshots and the npm publish workflow.
+
+[Unreleased]: https://github.com/BoatHacks/signalk-solar-sailing/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/BoatHacks/signalk-solar-sailing/releases/tag/v0.1.0

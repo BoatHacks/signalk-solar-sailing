@@ -20,9 +20,21 @@ jobs:
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+      - name: Check the release tag matches package.json
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "::error::Release tag $TAG does not match package.json $VERSION"
+            exit 1
+          fi
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
       - run: npm audit --omit=dev
+      # Trusted publishing needs npm >= 11.5.1 (Node 24 ships it). Provenance
+      # is attached automatically when npm publishes through OIDC.
+      - run: npm --version
       - run: npm publish
