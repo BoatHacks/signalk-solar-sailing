@@ -75,7 +75,9 @@ Turns the data tree into readings (SPEC 4). Each tick it:
   `electrical.batteries.*` by default), applying the configured sign;
 - reads DC system power from the configured path (default
   `electrical.venus.dcPower`);
-- marks a reading stale when its timestamp is older than `staleSeconds`.
+- marks a reading stale when its timestamp is older than `staleSeconds`
+  (`changeOnlyStaleSeconds` for DC system power and battery, which Venus
+  sends only on change).
 
 Reading the current value on a tick, rather than listening to deltas, is what
 makes the venus plugin's duplicate deltas harmless (SPEC 11). Path overrides in

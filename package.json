@@ -1,6 +1,6 @@
 {
   "name": "signalk-solar-sailing",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Signal K plugin that matches electric motor draw to solar input: solar budget, match state and target RPM.",
   "type": "module",
   "main": "index.js",
