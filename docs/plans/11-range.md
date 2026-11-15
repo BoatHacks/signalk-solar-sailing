@@ -48,6 +48,25 @@ The learning machinery is the propeller's, generalised:
   speed. Without an STW sensor the speed model stays unlearned unless a
   fallback `c` is configured (open question 4 in plan 9).
 
+### Fouled log: STW reading low (Tobi, 2026-11-15)
+The DST810's paddlewheel may be fouled and read slower than the boat moves.
+A proportional under-read only scales `c` (the exponent `m` is unaffected),
+so the range comes out pessimistic, which is the safe direction, but it
+should still be correctable:
+
+- **Config `stwFactor`** (default 1.0): multiplies STW before learning and
+  display. Changing it rescales the stored `c` instead of discarding the
+  samples (samples are stored raw, the factor is applied at fit time).
+- **Suggested factor, never applied automatically**: while motoring with
+  fresh STW, SOG and COG, collect `SOG / STW` ratios bucketed by heading
+  (8 sectors). Current cancels out over opposite headings, so once at least
+  4 sectors have 10 samples each, the median of the per-sector medians is
+  published in `status` as `stwFactorSuggested` with its spread. The
+  webapp shows it in the learning hint; the skipper decides whether to set
+  it (cleaning the wheel is the real fix).
+- A sudden drop of the ratio's level (fresh weed growth) only moves the
+  suggestion; the learned model is not reset automatically.
+
 ### Range maths (`lib/range.js`, pure)
 - `rangeBasis`: `dayBudget` when known, else the live (smoothed) `budget`.
   Published as `rangeBasis` so the webapp can say which.
@@ -94,18 +113,25 @@ The learning machinery is the propeller's, generalised:
   guard.
 - Engine: learning only in active mode; range filled in idle once learned;
   without STW, forecast or course the snapshot equals plan 10's output.
-- A boat log with STW would make a real fixture; the 2026-10-25 Curtis log
-  has none, so this waits on open question 4. Synthetic tests until then.
+- The DST810 is unplugged over the winter and the 2026-10-25 Curtis log has
+  no STW, so tests are synthetic until spring. Then a capture from the first
+  motoring days (STW, motor power, `navigation.state`) becomes
+  `test/fixtures/stw-<date>.json`, with a test that the fit lands in the
+  clamp range and the range values appear.
 
 ## Implementation Steps
 - [ ] Confirm the Course API distance path and the STW source on the boat
 - [ ] `lib/powerlaw.js` refactor, propeller tests unchanged
-- [ ] `lib/speed.js` + tests
+- [ ] `lib/speed.js` + tests (incl. `stwFactor` rescaling and the
+      SOG/STW heading-sector suggestion)
 - [ ] `lib/range.js` + tests
 - [ ] Sources, config, engine, persistence in `index.js`
 - [ ] Advisory paths and metadata, resources
 - [ ] SPEC 2.4 (speed model), 5.1, 7, 8 and ARCHITECTURE 2.3, 2.4, 3, 9
       updated; CHANGELOG
+- [ ] Spring, DST810 back: capture an STW fixture, check the learned
+      `c`, `m` against it, tune the steady-state gate if needed, and
+      compare the suggested `stwFactor` before and after cleaning the wheel
 
 ## Files to Create/Modify
 `lib/powerlaw.js`, `lib/propeller.js`, `lib/speed.js`, `lib/range.js`,

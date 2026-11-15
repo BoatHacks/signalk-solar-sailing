@@ -150,6 +150,7 @@ the server's unit definitions in plan 10, the same way `Wh` was chosen over
 | Best-hours window | 3 h | 10 |
 | Position max age | 60 min | 10 |
 | Speed through water path | `navigation.speedThroughWater` | 11 |
+| STW correction factor (fouled log) | 1.0 | 11 |
 | Fallback speed model (`c`, `m`) | none / ⅓ (speed hidden until learned) | 11 |
 | Reset learned speed model | off | 11 |
 
@@ -176,11 +177,14 @@ All have defaults in the schema (registry: schema criterion).
    be spent down? That needs the bank capacity in Wh (config, or the
    battery's `capacity.nominal` if published). Proposed: not in plan 10,
    revisit after a few days of use.
-3. **Speed model input.** The plan learns speed from motor power (works
-   without RPM, one model, no chained error). The alternative is speed from
-   RPM chained with the propeller model's target RPM. Fine to start with
-   power?
-4. **Speed through water sensor.** Is there a working log (paddlewheel) on
-   board publishing `navigation.speedThroughWater`? Without it, plan 11 can
-   only learn from SOG in slack water, which the plan does not do by default
-   (see plan 11).
+3. **Speed model input.** Answered (Tobi, 2026-11-15): learn speed from
+   motor power. The propeller learner's behaviour does not change; plan 11
+   only moves its shared fitting code into `lib/powerlaw.js`, guarded by the
+   unchanged propeller tests, and the speed model keeps its own samples and
+   `speed.json`.
+4. **Speed through water sensor.** Answered (Tobi, 2026-11-15): Airmar
+   DST810 on NMEA 2000, unplugged over the winter. Plan 11 is built and
+   tested on synthetic data; the range values stay hidden (unlearned model)
+   until the log is back, and a spring capture becomes the real fixture.
+   The log may be fouled and read low: plan 11 adds an STW correction
+   factor and suggests one from SOG/STW over several headings.
