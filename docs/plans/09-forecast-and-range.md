@@ -97,9 +97,11 @@ Polar day: `alwaysUp` → horizon is the end of the forecast (or 24 h); polar
 night or after sunset → `null` and the webapp says "after sunset".
 
 ## Sunset target SoC (Tobi, 2026-11-15)
-The day budget aims at a target state of charge at sunset instead of
-"end the day where you started", so a full bank in the morning can be spent
-on the way and a low one is refilled.
+When a target is set, the day budget aims at a state of charge at sunset
+instead of "end the day where you started", so a full bank in the morning
+can be spent on the way and a low one is refilled. **Off by default**
+(Tobi, 2026-11-15): out of the box the day budget is SoC-neutral, as
+SPEC 9.2 first described it.
 
 ```
 bankWh     = (SoC_now − target_eff) · capacityWh          (negative = charge)
@@ -107,13 +109,17 @@ dayBudget  = clamp((solarWh − houseWh + bankWh) · 3600 / secondsLeft, 0, max)
 target_eff = max(sunsetTargetSoc, minSoc + nightHouseWh / capacityWh)
 ```
 
-- **Target**: config `sunsetTargetSocPercent`, default 90 % (the `socHigh`
-  default, so the bank goes into the night nearly full). 0 turns the
-  target off.
-- **Capacity**: config `batteryCapacityWh`, else the bank's
-  `capacity.nominal` (J, Signal K schema) if published, else unknown. On
-  this boat nothing publishes it; the predictor's config says 302 Ah × 48 V,
-  so set ≈ 14 500 Wh. The plugin does not read another plugin's config file.
+- **Target**: config `sunsetTargetSocPercent`, default 0 = off. A typical
+  value is the `socHigh` default of 90 %, so the bank goes into the night
+  nearly full.
+- **Capacity**: config `batteryCapacityWh`, default 14 500 Wh (Tobi,
+  2026-11-15: the reference boat's 302 Ah × 48 V bank, from the predictor's
+  config). Set to 0 to use the bank's `capacity.nominal` (J, Signal K
+  schema) if published, else capacity is unknown and the day budget falls
+  back to `neutral`. The plugin does not read another plugin's config file.
+  Other boats must set their own value; the README and the field
+  description say so. With the target off by default, the capacity only
+  matters once a target is set.
 - **Night reserve and the floor**: `minSoc` (config `minSocPercent`,
   default 20 %, the same value as the predictor's `minSafeSoC`) plus the
   forecast house energy from sunset to the next sunrise (from
@@ -190,20 +196,26 @@ the server's unit definitions in plan 10, the same way `Wh` was chosen over
 |---------|---------|------|
 | Use solar forecast | on (no effect without a forecast) | 10 |
 | Forecast path | `electrical.energy.prediction` | 10 |
-| Forecast max age | 180 min (the predictor's default cycle is 60 min) | 10 |
-| Surplus assist cap | 300 W | 10 |
-| Deficit reserve / critical reserve | 100 W / 200 W | 10 |
-| Best-hours window | 3 h | 10 |
-| Sunset target SoC | 90 % (0 = off, SoC-neutral) | 10 |
-| Battery capacity | 0 Wh = from `capacity.nominal`, else unknown | 10 |
-| Minimum SoC (night floor) | 20 % | 10 |
-| Position max age | 60 min | 10 |
+| Forecast max age (`forecastMaxAgeMinutes`) | 180 min (the predictor's default cycle is 60 min); confirmed | 10 |
+| Surplus assist cap (`surplusAssistCapW`) | 300 W; confirmed | 10 |
+| Deficit reserve (`deficitReserveW`) | 100 W; confirmed | 10 |
+| Critical reserve (`criticalReserveW`) | 200 W; confirmed | 10 |
+| Best-hours window (`bestHoursWindowH`) | 3 h; confirmed | 10 |
+| Sunset target SoC (`sunsetTargetSocPercent`) | 0 = off (SoC-neutral); changed from 90 %, confirmed | 10 |
+| Battery capacity (`batteryCapacityWh`) | 14 500 Wh (reference boat; 0 = from `capacity.nominal`, else unknown); changed, confirmed | 10 |
+| Minimum SoC, night floor (`minSocPercent`) | 20 % plus forecast night house load; confirmed | 10 |
+| Position max age (`positionMaxAgeMinutes`) | 60 min; confirmed | 10 |
 | Speed through water path | `navigation.speedThroughWater` | 11 |
-| STW correction factor (fouled log) | 1.0 | 11 |
-| Fallback speed model (`c`, `m`) | none / ⅓ (speed hidden until learned) | 11 |
+| STW correction factor (`stwFactor`) | 1.0; confirmed | 11 |
+| Fallback speed model (`c`, `m`) | none / ⅓ (speed hidden until learned); confirmed | 11 |
 | Reset learned speed model | off | 11 |
 
-All have defaults in the schema (registry: schema criterion).
+Fixed tuning constants (not settings), also confirmed on 2026-11-15:
+no day budget in the last 15 min before sunset (plan 10); speed exponent
+`m` clamped to 0.15–0.6, range shown after 30 steady samples (plan 11).
+
+All are admin-UI settings with defaults in the schema (registry: schema
+criterion). "Confirmed" marks the defaults Tobi reviewed on 2026-11-15.
 
 ## Registry and packaging
 - `signalk.recommends` gains `@meri-imperiumi/signalk-energy-predictor`
@@ -220,7 +232,8 @@ All have defaults in the schema (registry: schema criterion).
    `propulsion.main` currently holds only the gear ratio from `baseDeltas`.
    To confirm the next time the motor runs (details in plan 10).
 2. **Day budget and the bank.** Answered (Tobi, 2026-11-15): make it
-   target-SoC aware from the start. See "Sunset target SoC" above.
+   target-SoC aware from the start, configurable and off by default. See
+   "Sunset target SoC" above.
 3. **Speed model input.** Answered (Tobi, 2026-11-15): learn speed from
    motor power. The propeller learner's behaviour does not change; plan 11
    only moves its shared fitting code into `lib/powerlaw.js`, guarded by the
