@@ -112,10 +112,14 @@ target_eff = max(sunsetTargetSoc, minSoc + nightHouseWh / capacityWh)
 - **Target**: config `sunsetTargetSocPercent`, default 0 = off. A typical
   value is the `socHigh` default of 90 %, so the bank goes into the night
   nearly full.
-- **Capacity**: config `batteryCapacityWh`, else the bank's
-  `capacity.nominal` (J, Signal K schema) if published, else unknown. On
-  this boat nothing publishes it; the predictor's config says 302 Ah × 48 V,
-  so set ≈ 14 500 Wh. The plugin does not read another plugin's config file.
+- **Capacity**: config `batteryCapacityWh`, default 14 500 Wh (Tobi,
+  2026-11-15: the reference boat's 302 Ah × 48 V bank, from the predictor's
+  config). Set to 0 to use the bank's `capacity.nominal` (J, Signal K
+  schema) if published, else capacity is unknown and the day budget falls
+  back to `neutral`. The plugin does not read another plugin's config file.
+  Other boats must set their own value; the README and the field
+  description say so. With the target off by default, the capacity only
+  matters once a target is set.
 - **Night reserve and the floor**: `minSoc` (config `minSocPercent`,
   default 20 %, the same value as the predictor's `minSafeSoC`) plus the
   forecast house energy from sunset to the next sunrise (from
@@ -197,7 +201,7 @@ the server's unit definitions in plan 10, the same way `Wh` was chosen over
 | Deficit reserve / critical reserve | 100 W / 200 W | 10 |
 | Best-hours window | 3 h | 10 |
 | Sunset target SoC | 0 = off (SoC-neutral) | 10 |
-| Battery capacity | 0 Wh = from `capacity.nominal`, else unknown | 10 |
+| Battery capacity | 14 500 Wh (reference boat; 0 = from `capacity.nominal`, else unknown) | 10 |
 | Minimum SoC (night floor) | 20 % | 10 |
 | Position max age | 60 min | 10 |
 | Speed through water path | `navigation.speedThroughWater` | 11 |
