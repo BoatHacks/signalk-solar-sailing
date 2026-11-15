@@ -178,3 +178,30 @@ test('Curtis log: in drive only while direction != 0 and drawing power', () => {
 function pick (o, keys = ['id', 'soc', 'watts']) {
   return Object.fromEntries(keys.map((k) => [k, o[k]]))
 }
+
+test('position: fresh within positionMaxAgeMinutes, invalid ignored', () => {
+  const tree = {}
+  setIn(tree, 'navigation.position', { value: { latitude: 54.32, longitude: 10.12 }, timestamp: new Date(NOW - 30 * 60000).toISOString() })
+  assert.deepEqual(readSources(tree, cfg(), NOW).position, { lat: 54.32, lon: 10.12, time: NOW - 30 * 60000, stale: false })
+  assert.equal(readSources(tree, cfg({ positionMaxAgeMinutes: 20 }), NOW).position?.stale, true)
+  setIn(tree, 'navigation.position', { value: { latitude: 120, longitude: 0 }, timestamp: new Date(NOW).toISOString() })
+  assert.equal(readSources(tree, cfg(), NOW).position, undefined)
+  setIn(tree, 'navigation.position', { value: null, timestamp: new Date(NOW).toISOString() })
+  assert.equal(readSources(tree, cfg(), NOW).position, undefined)
+})
+
+test('battery capacity.nominal (J) read as Wh', () => {
+  const tree = treeOf({ 'electrical.batteries.main.stateOfCharge': 0.8, 'electrical.batteries.main.capacity.nominal': 14500 * 3600 }, NOW)
+  assert.equal(readBattery(tree, cfg(), NOW)?.capacityWh, 14500)
+  const none = treeOf({ 'electrical.batteries.main.stateOfCharge': 0.8 }, NOW)
+  assert.equal(readBattery(none, cfg(), NOW)?.capacityWh, undefined)
+})
+
+test('forecast read from the cached node only when useForecast is on', () => {
+  const t = new Date(NOW).toISOString()
+  const node = { status: { value: 'stable', timestamp: t }, forecast: { hourly: { value: [{ time: t, idealSolarYieldWh: 100, houseLoadWh: 20 }], timestamp: t } } }
+  assert.equal(readSources({}, cfg(), NOW, node).forecast?.hours.length, 1)
+  assert.equal(readSources({}, cfg({ useForecast: false }), NOW, node).forecast, undefined)
+  const r = readSources({}, cfg(), NOW)
+  assert.deepEqual([r.forecast, r.position], [undefined, undefined])
+})

@@ -20,7 +20,7 @@ dashboard. Post-MVP items (SPEC 9.2) get their own plans when started.
 
 | # | Plan | Delivers | Depends on | Status |
 |---|------|----------|------------|--------|
-| 9 | [Forecast and range: shared design](09-forecast-and-range.md) | data flow, sunset, new paths and config | 6 | planned |
-| 10 | [Sun and forecast](10-sun-and-forecast.md) | sunset, day budget, forecast bias, best hours | 9 | planned |
+| 9 | [Forecast and range: shared design](09-forecast-and-range.md) | data flow, sunset, new paths and config | 6 | done (design) |
+| 10 | [Sun and forecast](10-sun-and-forecast.md) | sunset, day budget, forecast bias, best hours | 9 | done |
 | 11 | [Range and speed](11-range.md) | learned speed model, range until sunset, waypoint ETA | 10 | planned |
 | 12 | [Webapp: forecast and range](12-forecast-range-webapp.md) | day budget, range panel, forecast on the chart | 10, 11 | planned |

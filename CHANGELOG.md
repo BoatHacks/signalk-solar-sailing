@@ -5,6 +5,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Optional solar forecast from `@meri-imperiumi/signalk-energy-predictor`
+  (plan 10). Without it, and with default settings, nothing changes.
+  - Forecast bias on the solar budget: up to +300 W while the bank will fill
+    anyway, −100 W on `deficit`, −200 W on `critical` (all configurable).
+  - Day budget until sunset, SoC-neutral by default or aimed at a sunset
+    target SoC (off by default) with a night reserve above the minimum SoC.
+  - Best 3 h window to motor today, sunset from the boat's position.
+  - New paths `plugin.solarsailing.forecastBias`, `dayBudget`,
+    `dayBudgetBasis`, `sunsetTargetSoc`, `solarRemaining`, `houseRemaining`,
+    `sunset`, `bestHoursStart`, `bestHoursEnd`, and a trimmed forecast curve
+    in the status resource.
+  - The forecast is kept from a subscription, because the server nulls the
+    predictor's hourly values after 60 s.
+
 ## [0.1.2] - 2026-11-15
 
 ### Fixed

@@ -185,10 +185,10 @@ timestamp unit; meta description says "ISO 8601 time").
 `socBias` keeps its meaning (the SoC curve of SPEC 2.2 only), so the webapp
 and history can show how much of the budget came from the forecast.
 
-`displayUnits`: `power`/`W`, `energy`/`Wh`, speed `kn`, distance `nm`.
-The exact server category names for speed and distance are checked against
-the server's unit definitions in plan 10, the same way `Wh` was chosen over
-`kWh` (ARCHITECTURE 2.6).
+`displayUnits`: `power`/`W`, `energy`/`Wh`, `percentage`/`percent` (ratio),
+speed `speed`/`kn`, distance `distance`/`naut-mile` (checked against
+signalk-server 2.37.0 `unitpreferences/`, plan 10: the distance unit is
+`naut-mile`, not `nm`). ISO times get no units or displayUnits.
 
 ## New config (SPEC 8 additions)
 

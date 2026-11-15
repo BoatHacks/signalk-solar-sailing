@@ -10,6 +10,7 @@ import { PropellerModel } from './lib/propeller.js'
 import { loadEnergySeed } from './lib/history.js'
 import { createAdvisoryOutput } from './lib/outputs/advisory.js'
 import { RESOURCE_TYPE, buildStatus, resourceMethods } from './lib/resources.js'
+import { LastValueCache } from './lib/cache.js'
 
 export const PLUGIN_ID = 'signalk-solar-sailing'
 export const ACTIVE_TICK_MS = 1000
@@ -69,6 +70,7 @@ export default function solarSailing (app) {
         engine,
         propeller,
         outputs: [advisory],
+        forecastCache: new LastValueCache(config.forecastPath),
         /** @type {ReturnType<typeof setTimeout> | undefined} */
         timer: undefined,
         /** @type {ReturnType<typeof setInterval> | undefined} */
@@ -100,6 +102,7 @@ export default function solarSailing (app) {
       })
 
       guard('wake subscription', () => subscribeWake(s))
+      if (config.useForecast) guard('forecast subscription', () => subscribeForecast(s))
 
       s.saveTimer = setInterval(() => { saveModel(s) }, PROPELLER_SAVE_MS)
       if (s.saveTimer.unref) s.saveTimer.unref()
@@ -191,7 +194,7 @@ export default function solarSailing (app) {
    * @param {import('./lib/config.js').Config} config
    */
   function readTree (config) {
-    const roots = new Set(['electrical', 'environment'])
+    const roots = new Set(['electrical', 'environment', 'navigation'])
     for (const p of [config.propulsionPath, config.solarPath, config.motorPowerPath, config.batteryPath, config.dcSystemPowerPath]) {
       if (p) roots.add(p.split('.')[0])
     }
@@ -214,7 +217,7 @@ export default function solarSailing (app) {
     const now = Date.now()
     s.lastTickAt = now
     try {
-      const readings = guard('read sources', () => readSources(readTree(s.config), s.config, now))
+      const readings = guard('read sources', () => readSources(readTree(s.config), s.config, now, s.forecastCache.tree()))
       const snapshot = readings && guard('engine', () => s.engine.update(readings, now))
       if (snapshot) {
         for (const o of s.outputs) guard(`${o.name} output`, () => o.update(snapshot, now))
@@ -259,6 +262,29 @@ export default function solarSailing (app) {
         if (s.timer) clearTimeout(s.timer)
         s.wakePending = true
         s.timer = setTimeout(() => { s.wakePending = false; tick(s) }, wait)
+      }
+    )
+  }
+
+  /**
+   * The forecast arrives about once an hour and the server nulls its paths
+   * 60 s later, so keep the last values instead of reading the tree on the
+   * tick (plan 10). Seeded from the tree, so a restart has the current run.
+   * @param {any} s
+   */
+  function subscribeForecast (s) {
+    const cache = s.forecastCache
+    guard('forecast seed', () => cache.seed(app.getSelfPath(s.config.forecastPath), Date.now()))
+    if (!app.subscriptionmanager || typeof app.subscriptionmanager.subscribe !== 'function') return
+    app.subscriptionmanager.subscribe(
+      {
+        context: 'vessels.self',
+        subscribe: [{ path: `${s.config.forecastPath}.*`, policy: 'instant' }]
+      },
+      s.unsubscribes,
+      (/** @type {any} */ err) => error(`forecast subscription: ${err}`),
+      (/** @type {any} */ delta) => {
+        if (s.running) guard('forecast delta', () => cache.applyDelta(delta, Date.now()))
       }
     )
   }
