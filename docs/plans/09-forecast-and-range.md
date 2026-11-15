@@ -96,6 +96,46 @@ Order of sources for "time left in the solar day":
 Polar day: `alwaysUp` → horizon is the end of the forecast (or 24 h); polar
 night or after sunset → `null` and the webapp says "after sunset".
 
+## Sunset target SoC (Tobi, 2026-11-15)
+The day budget aims at a target state of charge at sunset instead of
+"end the day where you started", so a full bank in the morning can be spent
+on the way and a low one is refilled.
+
+```
+bankWh     = (SoC_now − target_eff) · capacityWh          (negative = charge)
+dayBudget  = clamp((solarWh − houseWh + bankWh) · 3600 / secondsLeft, 0, max)
+target_eff = max(sunsetTargetSoc, minSoc + nightHouseWh / capacityWh)
+```
+
+- **Target**: config `sunsetTargetSocPercent`, default 90 % (the `socHigh`
+  default, so the bank goes into the night nearly full). 0 turns the
+  target off.
+- **Capacity**: config `batteryCapacityWh`, else the bank's
+  `capacity.nominal` (J, Signal K schema) if published, else unknown. On
+  this boat nothing publishes it; the predictor's config says 302 Ah × 48 V,
+  so set ≈ 14 500 Wh. The plugin does not read another plugin's config file.
+- **Night reserve and the floor**: `minSoc` (config `minSocPercent`,
+  default 20 %, the same value as the predictor's `minSafeSoC`) plus the
+  forecast house energy from sunset to the next sunrise (from
+  `forecast.hourly`; without forecast coverage of the night, the floor
+  alone). The effective target never drops below what gets the bank
+  through the night above the floor, even when the configured target is
+  lower.
+- **Fallback, unchanged behaviour**: with the target off, capacity
+  unknown or SoC unknown, the day budget is the SoC-neutral formula plus
+  the static `socBias`, as first planned. `dayBudgetBasis` says which
+  (`target` / `neutral`).
+- **Interaction with the SoC bias**: with a target, the static `socBias`
+  is **not** added to the day budget: the bank term already says "hold back
+  when low, spend when full", and adding both would count the battery twice.
+  The **live budget is unchanged** (`solar − house + socBias +
+  forecastBias`); `socLow`/`socHigh` keep shaping it and the match state.
+  The webapp shows both, so a day budget above the live budget in the
+  morning reads as "the bank may help today".
+- **No round-trip loss term** for now: LiFePO4 is around 95 % and the
+  forecast error is larger. Revisit if the sunset SoC lands consistently
+  below target.
+
 ## New readings (`lib/types.js`, `lib/sources.js`)
 
 ```js
@@ -121,7 +161,9 @@ timestamp unit; meta description says "ISO 8601 time").
 | Path | Units | Plan | Meaning |
 |------|-------|------|---------|
 | `forecastBias` | W | 10 | Forecast adjustment added to the live budget (0 without forecast) |
-| `dayBudget` | W | 10 | Steady motor power that uses the forecast energy until sunset |
+| `dayBudget` | W | 10 | Steady motor power that uses the forecast energy until sunset and lands on the sunset target SoC |
+| `dayBudgetBasis` | — | 10 | `target` (sunset target SoC) / `neutral` (SoC-neutral fallback) |
+| `sunsetTargetSoc` | ratio | 10 | Effective sunset target (configured target, raised for the night reserve) |
 | `solarRemaining` | J | 10 | Forecast solar energy from now until sunset |
 | `houseRemaining` | J | 10 | Forecast house energy from now until sunset |
 | `sunset` | — | 10 | Sunset time today (ISO) |
@@ -150,6 +192,9 @@ the server's unit definitions in plan 10, the same way `Wh` was chosen over
 | Surplus assist cap | 300 W | 10 |
 | Deficit reserve / critical reserve | 100 W / 200 W | 10 |
 | Best-hours window | 3 h | 10 |
+| Sunset target SoC | 90 % (0 = off, SoC-neutral) | 10 |
+| Battery capacity | 0 Wh = from `capacity.nominal`, else unknown | 10 |
+| Minimum SoC (night floor) | 20 % | 10 |
 | Position max age | 60 min | 10 |
 | Speed through water path | `navigation.speedThroughWater` | 11 |
 | STW correction factor (fouled log) | 1.0 | 11 |
@@ -172,11 +217,8 @@ All have defaults in the schema (registry: schema criterion).
    the venus plugin publishes the Curtis as `propulsion.99`, and
    `propulsion.main` currently holds only the gear ratio from `baseDeltas`.
    To confirm the next time the motor runs (details in plan 10).
-2. **Day budget and the bank.** The plugin has no target SoC, only the bias
-   thresholds `socLow`/`socHigh`; the predictor has a 20 % minimum safe SoC.
-   Plan 10 stays SoC-neutral as specified. A follow-up could aim at
-   `socHigh` at sunset with the bank capacity from config (302 Ah × 48 V on
-   the predictor; no `capacity.nominal` is published).
+2. **Day budget and the bank.** Answered (Tobi, 2026-11-15): make it
+   target-SoC aware from the start. See "Sunset target SoC" above.
 3. **Speed model input.** Answered (Tobi, 2026-11-15): learn speed from
    motor power. The propeller learner's behaviour does not change; plan 11
    only moves its shared fitting code into `lib/powerlaw.js`, guarded by the

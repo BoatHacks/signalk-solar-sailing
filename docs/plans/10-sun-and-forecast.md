@@ -76,10 +76,18 @@ Read-only check of the live server running predictor 0.14.1:
   `maxAgeMs` or the last entry is in the past.
 - `remainingUntil(hours, now, end)` → `{ solarWh, houseWh }`, prorating the
   hour that contains `now` and the hour that contains `end` linearly.
-- `dayBudget({ solarWh, houseWh }, now, sunset, socBiasW, maxMotorPowerW)` →
-  W: `(solarWh − houseWh) · 3600 / secondsLeft + socBiasW`, clamped to
-  `[0, max]`; `undefined` when less than 15 min remain (division blows up and
-  the advice is useless then).
+- `nightHouseWh(hours, sunset, nextSunrise)` → Wh of forecast house load
+  through the night, or `undefined` when the forecast doesn't cover it.
+- `sunsetTarget(config, nightWh, capacityWh)` → effective target SoC
+  (plan 9, "Sunset target SoC"), or `undefined` when the target is off or
+  capacity unknown.
+- `dayBudget({ solarWh, houseWh }, now, sunset, { soc, target, capacityWh,
+  socBiasW, maxMotorPowerW })` → `{ watts, basis }`:
+  - `basis: 'target'` when target, capacity and SoC are known:
+    `(solarWh − houseWh + (soc − target) · capacityWh) · 3600 / secondsLeft`;
+  - else `basis: 'neutral'`: `(solarWh − houseWh) · 3600 / secondsLeft + socBiasW`;
+  - clamped to `[0, max]`; `undefined` when less than 15 min remain
+    (division blows up and the advice is useless then).
 - `forecastBias(reading, now, soc, config)` → W:
   - `surplus` with `timeToFull` set, `surplus.to` in the future and SoC above
     `socLow`: `+ min(surplusWh · 3600 / secondsUntil(surplus.to), surplusAssistCapW)`.
@@ -100,11 +108,14 @@ Read-only check of the live server running predictor 0.14.1:
   `solarRemaining`, `houseRemaining`, `dayBudget`, `bestHours`. Computed in
   idle too, so the skipper sees the day budget before starting the motor.
 - Snapshot gains `sunset?`, `forecastBiasW`, `dayBudgetW?`,
-  `solarRemainingJ?`, `houseRemainingJ?`, `bestHours?`, and
+  `solarRemainingJ?`, `houseRemainingJ?`, `bestHours?`, `dayBudgetBasis?`,
+  `sunsetTargetSoc?`, and
   `forecastStatus?` for the webapp. The match state stays against the live
   budget: the day budget is advice, not the alarm threshold.
 
 ### Sources (`lib/sources.js`)
+- `readBattery` also reads `capacity.nominal` (J → Wh) when present, as
+  `BatteryReading.capacityWh`.
 - `readPosition(tree, config, now)` from `navigation.position`
   (`{ latitude, longitude }`), stale after `positionMaxAgeMinutes`.
 - `readForecast(cache, config, now)` reads the subscription cache (see
@@ -112,7 +123,7 @@ Read-only check of the live server running predictor 0.14.1:
   `parseForecast`. `index.js` owns the subscription and drops it on `stop()`.
 
 ### Outputs
-- `advisory.js`: `PATH_META` entries for `forecastBias`, `dayBudget`,
+- `advisory.js`: `PATH_META` entries for `forecastBias`, `dayBudget`, `dayBudgetBasis`, `sunsetTargetSoc`,
   `solarRemaining`, `houseRemaining`, `sunset`, `bestHoursStart`,
   `bestHoursEnd`; `null` when unknown.
 - `resources.js`: `status` gains `forecast: { status, age, hours: [{ t, solarW, houseW }] }`
@@ -123,7 +134,8 @@ Read-only check of the live server running predictor 0.14.1:
 ### Config (`lib/config.js`)
 `useForecast`, `forecastPath` (validated like the other path overrides),
 `forecastMaxAgeMinutes`, `surplusAssistCapW`, `deficitReserveW`,
-`criticalReserveW`, `bestHoursWindowH`, `positionMaxAgeMinutes`, with
+`criticalReserveW`, `bestHoursWindowH`, `positionMaxAgeMinutes`,
+`sunsetTargetSocPercent`, `batteryCapacityWh`, `minSocPercent`, with
 defaults from plan 9.
 
 ## Test Strategy
@@ -135,13 +147,22 @@ surplus window added by hand covers the surplus bias.
   (Kiel in November, equator, a southern-hemisphere date), polar day and
   polar night flags at 78° N, day boundary with timezone offsets `200`,
   `-930`, missing.
+- Engine: target off, capacity or SoC missing → `basis: 'neutral'` and the
+  same day budget as without this feature.
 - `parseForecast`: array and JSON-string input; slots offset from the clock
   hour (the live `:15:02` start); malformed entries skipped;
   stale by age; stale when all hours are past; non-object node → `undefined`.
 - `remainingUntil`: prorating at both ends; sunset before the first entry;
   sunset past the last entry (uses what is covered, never extrapolates).
-- `dayBudget`: hand-computed cases; clamp at 0 and at max motor power;
-  `undefined` under 15 min left and after sunset.
+- `dayBudget`: hand-computed cases for both bases; clamp at 0 and at max
+  motor power; `undefined` under 15 min left and after sunset; SoC below
+  target gives a lower budget than neutral, above target a higher one;
+  `socBias` is not added on the `target` basis.
+- `sunsetTarget`: configured target used as is; raised by the night
+  reserve when `minSoc + night / capacity` is higher (fixture night:
+  ≈ 380 Wh on 14 500 Wh → floor 22.6 %); target 0 → `undefined`; no
+  capacity → `undefined`; capacity from `capacity.nominal` in J when config
+  is 0.
 - `forecastBias`: surplus with and without `timeToFull`, with SoC below
   `socLow` (no assist), cap applied, `surplus.to` in the past; deficit;
   critical; stale → 0.
@@ -162,11 +183,12 @@ surplus window added by hand covers the surplus bias.
 - [ ] `lib/sun.js` + tests
 - [ ] `lib/forecast.js` + fixture + tests
 - [ ] Readings, sources, config fields
-- [ ] Engine: forecast bias, sunset, day budget, best hours
+- [ ] Engine: forecast bias, sunset, day budget (target and neutral),
+      sunset target SoC, best hours
 - [ ] Advisory paths and metadata; check the server's `displayUnits`
       categories for the new units
 - [ ] Resources: forecast curve in `status`
-- [ ] SPEC 2.2, 4, 5.1, 8, 9.2 and ARCHITECTURE 2.2, 2.3, 3, 9 updated;
+- [ ] SPEC 2.2, 4, 5.1, 8, 9.2 (day budget now aims at the sunset target) and ARCHITECTURE 2.2, 2.3, 3, 9 updated;
       `recommends` and README; CHANGELOG
 
 ## Files to Create/Modify
