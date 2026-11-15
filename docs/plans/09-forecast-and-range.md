@@ -33,8 +33,10 @@ budget), but it needs plan 10's `lib/sun.js` for the sunset time.
   `start()` and the tick behave exactly as now (registry harness, SPEC 9.3).
 - **Missing means unknown, never 0.** A stale forecast is ignored, not read
   as "no sun". Unknown values publish `null`.
-- **Read on the tick, don't count deltas.** The forecast is a value in the
-  tree like any other; `lib/sources.js` reads it each tick.
+- **Read on the tick, don't count deltas**, with one exception: the boat
+  server nulls paths 60 s after their last update and the predictor
+  publishes hourly, so the forecast and `navigation.state` are kept from a
+  subscription in a last-value cache that the tick reads (plan 10).
 - **`lib/` stays I/O-free.** New maths modules take plain values and `now`.
 - **Zero runtime dependencies.** The sun position is about 40 lines of the
   NOAA algorithm, not a library (signalk-energy-predictor uses
@@ -164,19 +166,17 @@ All have defaults in the schema (registry: schema criterion).
 - `CHANGELOG.md` `Unreleased` entry per plan.
 
 ## Open questions for Tobi
-1. **Predictor engine config.** The predictor learns house load from
-   `electrical.venus.dcPower`, which includes the Curtis on this boat. It only
-   leaves motoring out of its load profile when the motor is configured as an
-   engine there (electric drive: `alternatorWatts: 0`, id matching the
-   propulsion instance, `99` or `main`). Is that set on board? If not, the
-   forecast house load is too high and the day budget too low. The plan
-   assumes it is set and the README will say so.
-2. **Day budget and the bank.** As specified, the day budget is SoC-neutral
-   ("end the day where you started", plus the static SoC bias). Should it
-   instead aim at a target SoC at sunset, so a full bank in the morning may
-   be spent down? That needs the bank capacity in Wh (config, or the
-   battery's `capacity.nominal` if published). Proposed: not in plan 10,
-   revisit after a few days of use.
+1. **Predictor engine config.** Checked on the server (2026-11-15): the
+   predictor has engine `main` with `alternatorWatts: 0`. It only gates
+   motoring out of its house load if `propulsion.main` gets live revolutions;
+   the venus plugin publishes the Curtis as `propulsion.99`, and
+   `propulsion.main` currently holds only the gear ratio from `baseDeltas`.
+   To confirm the next time the motor runs (details in plan 10).
+2. **Day budget and the bank.** The plugin has no target SoC, only the bias
+   thresholds `socLow`/`socHigh`; the predictor has a 20 % minimum safe SoC.
+   Plan 10 stays SoC-neutral as specified. A follow-up could aim at
+   `socHigh` at sunset with the bank capacity from config (302 Ah × 48 V on
+   the predictor; no `capacity.nominal` is published).
 3. **Speed model input.** Answered (Tobi, 2026-11-15): learn speed from
    motor power. The propeller learner's behaviour does not change; plan 11
    only moves its shared fitting code into `lib/powerlaw.js`, guarded by the

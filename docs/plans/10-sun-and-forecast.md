@@ -17,10 +17,10 @@ package source, `plugin/advisory.js` and `plugin/prediction.js`):
 
 | Path | Shape | Used for |
 |------|-------|----------|
-| `forecast.hourly` | array of `{ time (ISO, hour start), idealSolarYieldWh, houseLoadWh, idealNetWh, idealSoC, … }`, 24 entries by default | day budget, best hours, chart curve |
+| `forecast.hourly` | array of `{ hour, time (ISO, start of a 1 h slot), idealSolarYieldWh, houseLoadWh, idealNetWh, idealSoC, … }`, 24 entries by default | day budget, best hours, chart curve |
 | `status` | `surplus` / `rising` / `stable` / `deficit` / `critical` / `null` | forecast bias |
 | `timeToFull` | ISO or `null` | surplus bias guard |
-| `surplus`, `surplus.from`, `surplus.to` | Wh, ISO, ISO (0 / `null` when none) | surplus bias |
+| `surplus`, `surplus.from`, `surplus.to` | Wh, ISO, ISO (`surplus` 0 and the window paths absent when none) | surplus bias |
 
 Notes from the source: values are Wh, not J; `houseLoadWh` is the learned
 DC + AC load and excludes motoring only if the motor is configured as an
@@ -29,6 +29,38 @@ runs every 60 min by default, so the forecast age, not `staleSeconds`,
 decides freshness. The parser accepts the value as an array or a JSON string
 and skips malformed entries, because the shape is another plugin's and not
 in the Signal K schema.
+
+### Checked on the boat server (2026-11-15)
+Read-only check of the live server running predictor 0.14.1:
+
+- **Slots are not hour-aligned.** `time` is the run time plus *h* hours
+  (`14:15:02Z`, `15:15:02Z`, …), so every calculation treats an entry as the
+  interval `[time, time + 1 h)` and prorates by overlap, never by clock hour.
+- **Paths time out.** The server nulls a path 60 s after its last update
+  (`value: null`, `state.timedOut: true`, real data in `state.lastValue`).
+  The predictor publishes once an hour, so a plain read of the tree returns
+  `null` for about 59 minutes of every hour. `navigation.state` behaves the
+  same. The forecast is therefore **not read from the tree on the tick**:
+  `index.js` subscribes to `<forecastPath>.*` and `navigation.state` and
+  keeps the last value and its timestamp in a small cache that
+  `readSources` reads. Freshness comes from our own `forecastMaxAgeMinutes`,
+  not the server's timeout. This is the one exception to "read on a tick"
+  (SPEC 11). It is safe because nothing is counted: a duplicate delta only
+  overwrites the cache with the same value.
+- `forecast.hourly` is a real JSON array; `surplus` a plain number; the
+  `surplus.from`/`to` paths are absent with no surplus; `timeToFull` `null`.
+- The predictor has an engine `main` with `alternatorWatts: 0`, so motoring
+  is gated out of its load profile **if** `propulsion.main` gets live
+  revolutions while motoring. On the server today `propulsion.main` only
+  holds `transmission.gearRatio` (2.67) from `baseDeltas`, and the venus
+  plugin publishes the Curtis as `propulsion.99`. To confirm when the motor
+  is next used; if `main` has no revolutions, map `99` to `main` (or
+  change the predictor's engine id to `99`).
+- Battery: 302 Ah at 48 V (≈ 14.5 kWh) in the predictor config;
+  `electrical.batteries.main` has no `capacity.nominal`.
+- Captured as `test/fixtures/energy-prediction-2026-11-15.json`. `idealNetWh`
+  is rounded separately from its parts, so tests must not assume
+  `net = solar − house` exactly.
 
 ## Approach
 
@@ -75,8 +107,9 @@ in the Signal K schema.
 ### Sources (`lib/sources.js`)
 - `readPosition(tree, config, now)` from `navigation.position`
   (`{ latitude, longitude }`), stale after `positionMaxAgeMinutes`.
-- `readForecast(tree, config, now)` walks the configured forecast path only
-  when `useForecast` is on, then calls `parseForecast`.
+- `readForecast(cache, config, now)` reads the subscription cache (see
+  "Checked on the boat server") only when `useForecast` is on, then calls
+  `parseForecast`. `index.js` owns the subscription and drops it on `stop()`.
 
 ### Outputs
 - `advisory.js`: `PATH_META` entries for `forecastBias`, `dayBudget`,
@@ -94,16 +127,16 @@ in the Signal K schema.
 defaults from plan 9.
 
 ## Test Strategy
-Fixture: `test/fixtures/energy-prediction-sample.json`, an
-`electrical.energy.prediction` subtree in the 0.14.1 shape (hand-built from
-the package source; replaced by a capture from the boat once the predictor
-runs there).
+Fixture: `test/fixtures/energy-prediction-2026-11-15.json`, captured from
+the boat server (14:15Z run, no surplus, status `stable`). A copy with a
+surplus window added by hand covers the surplus bias.
 
 - `sun.js`: sunrise/sunset within 2 min of published tables for three cases
   (Kiel in November, equator, a southern-hemisphere date), polar day and
   polar night flags at 78° N, day boundary with timezone offsets `200`,
   `-930`, missing.
-- `parseForecast`: array and JSON-string input; malformed entries skipped;
+- `parseForecast`: array and JSON-string input; slots offset from the clock
+  hour (the live `:15:02` start); malformed entries skipped;
   stale by age; stale when all hours are past; non-object node → `undefined`.
 - `remainingUntil`: prorating at both ends; sunset before the first entry;
   sunset past the last entry (uses what is covered, never extrapolates).
@@ -118,6 +151,8 @@ runs there).
   fixture replay (regression guard); with the sample forecast the budget
   differs by exactly `forecastBiasW`; idle mode still fills the forecast
   fields.
+- Cache: a timed-out `null` delta does not overwrite the cached forecast;
+  the cache ages out by `forecastMaxAgeMinutes`.
 - Sources: no position and no forecast in the tree → readings unchanged
   apart from `undefined` fields; `useForecast` off → forecast ignored.
 - Plugin: `start()` with default config, empty tree, no network (existing
@@ -137,7 +172,7 @@ runs there).
 ## Files to Create/Modify
 `lib/sun.js`, `lib/forecast.js`, `lib/sources.js`, `lib/engine.js`,
 `lib/types.js`, `lib/config.js`, `lib/outputs/advisory.js`,
-`lib/resources.js`, `test/sun.test.js`, `test/forecast.test.js`,
-`test/fixtures/energy-prediction-sample.json`, `test/engine.test.js`,
+`lib/resources.js`, `index.js`, `test/sun.test.js`, `test/forecast.test.js`,
+`test/fixtures/energy-prediction-2026-11-15.json`, `test/engine.test.js`,
 `test/sources.test.js`, `package.json`, `README.md`, `CHANGELOG.md`,
 `docs/SPEC.md`, `docs/ARCHITECTURE.md`
