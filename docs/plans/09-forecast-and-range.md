@@ -1,0 +1,186 @@
+# Implementation Plan: Solar forecast and range estimate (shared design)
+
+## Overview
+The two remaining planning items from SPEC 9.2, taken together because both
+need the same three things: **when is sunset**, **how much energy is left
+until then**, and **what motor power that allows**. The forecast turns the
+live budget into a day budget; the range estimate turns a budget into speed
+and distance.
+
+This file is the shared design: data flow, the sun calculation, new readings,
+paths and config. The build is three plans, each one PR:
+
+| # | Plan | Delivers | Depends on |
+|---|------|----------|------------|
+| 10 | [Sun and forecast](10-sun-and-forecast.md) | sunset, day budget, forecast bias, best hours | 9 (this design) |
+| 11 | [Range and speed](11-range.md) | learned speed model, speed at budget, range until sunset, waypoint ETA | 10 (sunset, day budget) |
+| 12 | [Webapp: forecast and range](12-forecast-range-webapp.md) | day budget, best hours, forecast curve, range panel | 10, 11 |
+
+Plan 11 still works without plan 10's forecast (it falls back to the live
+budget), but it needs plan 10's `lib/sun.js` for the sunset time.
+
+## Relevant SPEC/ARCHITECTURE Sections
+- SPEC 2.2 (SoC bias), 2.6 (active/idle), 4 (sources, staleness), 5.1 (paths),
+  7 (persistence), 9.2 (the two items), 9.3 (registry: `recommends`, no network),
+  11 (design decisions), 12
+- ARCHITECTURE 2.2 (sources), 2.3 (engine), 2.4 (propeller learning, reused),
+  2.6 (advisory metadata), 2.8 (resources), 9 (future considerations)
+
+## Ground rules carried over (SPEC 11, project decisions)
+- **Works unchanged without a forecast**, without position, without speed
+  through water. Each missing input only hides the values that need it;
+  nothing that works today changes. With default config and no data,
+  `start()` and the tick behave exactly as now (registry harness, SPEC 9.3).
+- **Missing means unknown, never 0.** A stale forecast is ignored, not read
+  as "no sun". Unknown values publish `null`.
+- **Read on the tick, don't count deltas.** The forecast is a value in the
+  tree like any other; `lib/sources.js` reads it each tick.
+- **`lib/` stays I/O-free.** New maths modules take plain values and `now`.
+- **Zero runtime dependencies.** The sun position is about 40 lines of the
+  NOAA algorithm, not a library (signalk-energy-predictor uses
+  `@openwaters/almanac`; we don't take it).
+- **No network at runtime.** The forecast comes from another plugin's
+  Signal K paths; we never fetch weather ourselves.
+- **All outputs under `plugin.solarsailing.*`**, flat SI values with
+  `meta.units` and `displayUnits`, like the MVP paths.
+
+## Data flow
+
+```
+ navigation.position ─────────┐
+ electrical.energy.prediction.*  (signalk-energy-predictor, hourly cycle)
+        │                     │
+        ▼                     ▼
+ sources.js ── Readings { …, position?, forecast?, stw?, navState?, course? }
+        │
+        ▼
+ engine.js (per tick, both modes)
+   ├─ sun.js        sunset/sunrise for today at position        (plan 10)
+   ├─ forecast.js   day budget, forecast bias, best hours       (plan 10)
+   │                  live budget = solar − house + socBias + forecastBias
+   ├─ speed.js      learned v = c · Pᵐ from steady motoring      (plan 11)
+   └─ range.js      speed at budget, range until sunset, ETA    (plan 11)
+        │
+        ▼ Snapshot { …existing, sunset?, dayBudgetW?, forecastBiasW, bestHours?,
+        │            speedAtBudget?, rangeUntilSunset?, waypoint? }
+        ├─ advisory.js → new plugin.solarsailing.* paths
+        └─ resources.js → status (+ trimmed forecast curve for the chart)
+```
+
+The forecast and range values change slowly. They are computed on every tick
+because the work is tiny (24 forecast entries, one power law), which keeps
+the tick a single code path. The advisory output already publishes only on
+change or every 5 s, so the delta rate does not grow.
+
+## Sunset (`lib/sun.js`, shared)
+
+`sunTimes(lat, lon, dayStartMs)` → `{ sunrise?, sunset?, alwaysUp, alwaysDown }`
+for the local day that contains `dayStartMs`, using the NOAA solar position
+equations with the standard −0.833° horizon. "Local day" uses the same ship
+time as `energy.js` (`environment.time.timezoneOffset`, else UTC), so "today"
+means the same thing everywhere in the plugin.
+
+Order of sources for "time left in the solar day":
+
+1. `navigation.position` fresh (position may be older than `staleSeconds`;
+   a separate `positionMaxAgeMinutes`, default 60, because a slow boat moves
+   little and the sunset moves even less) → NOAA sunset.
+2. No position, forecast present → end of the last forecast hour today with
+   `idealSolarYieldWh` above a small floor (5 Wh). Coarse (hour steps), but
+   enough for a day budget.
+3. Neither → sunset unknown. Day budget and range-until-sunset are `null`;
+   speed at budget still works.
+
+Polar day: `alwaysUp` → horizon is the end of the forecast (or 24 h); polar
+night or after sunset → `null` and the webapp says "after sunset".
+
+## New readings (`lib/types.js`, `lib/sources.js`)
+
+```js
+/** @typedef {{ lat: number, lon: number, time?: number, stale: boolean }} PositionReading */
+/** @typedef {{ t: number, solarWh: number, houseWh: number }} ForecastHour */
+/** @typedef {{ time?: number, stale: boolean, hours: ForecastHour[],
+ *    status?: 'surplus'|'rising'|'stable'|'deficit'|'critical',
+ *    timeToFull?: number, surplusWh?: number,
+ *    surplusFrom?: number, surplusTo?: number }} ForecastReading */
+/** @typedef {{ mps: number, time?: number, stale: boolean }} SpeedReading */
+/** @typedef {{ distanceM?: number, time?: number, stale: boolean }} CourseReading */
+```
+
+`Readings` gains optional `position`, `forecast`, `stw`, `navState` and
+`course`. Each is read only when its path exists, so an old tree yields the
+same `Readings` as today plus `undefined` fields.
+
+## New published paths (SPEC 5.1 additions)
+
+All under `plugin.solarsailing.`. Times are ISO 8601 strings (Signal K has no
+timestamp unit; meta description says "ISO 8601 time").
+
+| Path | Units | Plan | Meaning |
+|------|-------|------|---------|
+| `forecastBias` | W | 10 | Forecast adjustment added to the live budget (0 without forecast) |
+| `dayBudget` | W | 10 | Steady motor power that uses the forecast energy until sunset |
+| `solarRemaining` | J | 10 | Forecast solar energy from now until sunset |
+| `houseRemaining` | J | 10 | Forecast house energy from now until sunset |
+| `sunset` | — | 10 | Sunset time today (ISO) |
+| `bestHoursStart` / `bestHoursEnd` | — | 10 | Best window to motor today (ISO) |
+| `speedAtBudget` | m/s | 11 | Expected speed through water at the range basis budget |
+| `rangeUntilSunset` | m | 11 | Distance through water at that speed until sunset |
+| `rangeBasis` | — | 11 | `dayBudget` / `budget` (which budget the range uses) |
+| `waypointEta` | — | 11 | ETA at the next waypoint at `speedAtBudget` (ISO) |
+| `requiredPower` | W | 11 | Motor power needed to reach the waypoint by sunset |
+
+`socBias` keeps its meaning (the SoC curve of SPEC 2.2 only), so the webapp
+and history can show how much of the budget came from the forecast.
+
+`displayUnits`: `power`/`W`, `energy`/`Wh`, speed `kn`, distance `nm`.
+The exact server category names for speed and distance are checked against
+the server's unit definitions in plan 10, the same way `Wh` was chosen over
+`kWh` (ARCHITECTURE 2.6).
+
+## New config (SPEC 8 additions)
+
+| Setting | Default | Plan |
+|---------|---------|------|
+| Use solar forecast | on (no effect without a forecast) | 10 |
+| Forecast path | `electrical.energy.prediction` | 10 |
+| Forecast max age | 180 min (the predictor's default cycle is 60 min) | 10 |
+| Surplus assist cap | 300 W | 10 |
+| Deficit reserve / critical reserve | 100 W / 200 W | 10 |
+| Best-hours window | 3 h | 10 |
+| Position max age | 60 min | 10 |
+| Speed through water path | `navigation.speedThroughWater` | 11 |
+| Fallback speed model (`c`, `m`) | none / ⅓ (speed hidden until learned) | 11 |
+| Reset learned speed model | off | 11 |
+
+All have defaults in the schema (registry: schema criterion).
+
+## Registry and packaging
+- `signalk.recommends` gains `@meri-imperiumi/signalk-energy-predictor`
+  (SPEC 9.3 already says so), and the README names it as optional.
+- No new runtime dependency; `npm audit --omit=dev` stays clean.
+- Screenshots are retaken in plan 12; `signalk.screenshots` keeps two files.
+- `CHANGELOG.md` `Unreleased` entry per plan.
+
+## Open questions for Tobi
+1. **Predictor engine config.** The predictor learns house load from
+   `electrical.venus.dcPower`, which includes the Curtis on this boat. It only
+   leaves motoring out of its load profile when the motor is configured as an
+   engine there (electric drive: `alternatorWatts: 0`, id matching the
+   propulsion instance, `99` or `main`). Is that set on board? If not, the
+   forecast house load is too high and the day budget too low. The plan
+   assumes it is set and the README will say so.
+2. **Day budget and the bank.** As specified, the day budget is SoC-neutral
+   ("end the day where you started", plus the static SoC bias). Should it
+   instead aim at a target SoC at sunset, so a full bank in the morning may
+   be spent down? That needs the bank capacity in Wh (config, or the
+   battery's `capacity.nominal` if published). Proposed: not in plan 10,
+   revisit after a few days of use.
+3. **Speed model input.** The plan learns speed from motor power (works
+   without RPM, one model, no chained error). The alternative is speed from
+   RPM chained with the propeller model's target RPM. Fine to start with
+   power?
+4. **Speed through water sensor.** Is there a working log (paddlewheel) on
+   board publishing `navigation.speedThroughWater`? Without it, plan 11 can
+   only learn from SOG in slack water, which the plan does not do by default
+   (see plan 11).
