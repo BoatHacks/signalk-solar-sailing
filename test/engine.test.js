@@ -57,6 +57,21 @@ test('house load: balance when DC system is stale, then config', () => {
   assert.deepEqual([s.houseSource, s.houseW], ['config', 40])
 })
 
+test('house load: a motor that publishes nothing draws nothing', () => {
+  // Controller powered down: no motordrive or propulsion values at all.
+  let s = new Engine(cfg()).update(readings({ solar: [0], dc: 10.6 }), T)
+  assert.deepEqual([s.houseSource, s.houseW], ['dcSystem', 10.6])
+  assert.equal(s.motorW, undefined)
+  assert.equal(s.matchState, 'unknown')
+  s = new Engine(cfg()).update(readings({ solar: [300], dc: 380, dcStale: true, batteryW: 250 }), T)
+  assert.deepEqual([s.houseSource, s.houseW], ['balance', 50])
+})
+
+test('house load: a present but stale motor is unknown, not 0', () => {
+  const s = new Engine(cfg({ fallbackHouseLoadW: 40 })).update(readings({ solar: [600], motor: 300, motorStale: true, dc: 380 }), T)
+  assert.deepEqual([s.houseSource, s.houseW], ['config', 40])
+})
+
 test('house load is clamped at 0', () => {
   const s = new Engine(cfg()).update(readings({ solar: [600], motor: 300, dc: 250 }), T)
   assert.equal(s.houseW, 0)

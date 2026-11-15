@@ -59,7 +59,10 @@ House load is taken from the first source that is fresh, in this order:
    `house = solar − battery − motor`.
 3. **Configured constant** house load.
 
-House load is clamped at ≥ 0. The Cerbo figure comes first because it is one
+A motor that publishes nothing at all (controller powered down, so its
+paths are gone or nulled) counts as drawing 0 W for these two formulas; a
+motor that is present but stale makes them unavailable. House load is
+clamped at ≥ 0. The Cerbo figure comes first because it is one
 consistent, already-signed value from the GX instead of a sum of three
 readings with their own timestamps and sign conventions.
 
