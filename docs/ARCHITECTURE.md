@@ -77,7 +77,21 @@ Turns the data tree into readings (SPEC 4). Each tick it:
   `electrical.venus.dcPower`);
 - marks a reading stale when its timestamp is older than `staleSeconds`
   (`changeOnlyStaleSeconds` for DC system power and battery, which Venus
-  sends only on change).
+  sends only on change);
+- reads `navigation.position` (stale after `positionMaxAgeMinutes`) and the
+  bank's `capacity.nominal` (J → Wh);
+- reads the solar forecast from the last-value cache (`lib/cache.js`), not
+  the tree, when `useForecast` is on, and parses it with
+  `lib/forecast.js#parseForecast`.
+
+The forecast is the one exception to "read the tree on the tick": the
+predictor publishes once an hour and the server nulls a path 60 s after its
+last update. `index.js` subscribes to `<forecastPath>.*`, feeds the deltas
+into a `LastValueCache` (nulls ignored), and seeds it from the tree on start
+(`state.lastValue` of timed-out leaves). Nothing is counted, so duplicate
+deltas stay harmless. `parseForecast` drops values whose timestamp is older
+than the `forecast.hourly` run, so a `surplus.to` from an earlier run never
+counts.
 
 Reading the current value on a tick, rather than listening to deltas, is what
 makes the venus plugin's duplicate deltas harmless (SPEC 11). Path overrides in
@@ -95,8 +109,9 @@ Stateful but I/O-free. Input: readings and `now`. Output: a `Snapshot`
    (`dcSystem − motor`, or `dcSystem` when the "includes the motor" setting is
    off), else `solar − battery − motor`, else the configured value. Clamped at
    ≥ 0 and smoothed with the same time constant; `houseSource` records which.
-3. SoC bias from `batteryBias` (SPEC 2.2).
-4. Budget = smoothed(`solar − house + bias`), clamped to `[0, maxMotorPowerW]`.
+3. SoC bias from `batteryBias` (SPEC 2.2), plus the forecast bias from
+   `forecastBias` (0 without a fresh forecast).
+4. Budget = smoothed(`solar − house + socBias + forecastBias`), clamped to `[0, maxMotorPowerW]`.
    While idle the smoother is paused and the raw value is published, so the
    budget shows the current sun before the motor starts; the smoother restarts
    from the current value on the switch to active.
@@ -107,6 +122,14 @@ Stateful but I/O-free. Input: readings and `now`. Output: a `Snapshot`
    number > 0. The propeller model itself always works in motor RPM.
 7. Over-budget timer: `over` must persist `overBudgetDelaySeconds` while in
    drive before the snapshot sets `alarm: true`.
+8. Solar day (`solarDay`, both modes): sunset from the position
+   (`lib/sun.js`), else from the forecast; energy until sunset, sunset target
+   SoC, day budget and best hours from `lib/forecast.js` (SPEC 2.2). The day
+   budget is advice; the match state stays against the live budget.
+
+`lib/sun.js` is the NOAA sunrise equation (−0.833° horizon, about a minute
+of error), about 40 lines instead of a dependency. `lib/forecast.js` is pure:
+forecast slots are `[t, t + 1 h)` and every sum prorates by overlap.
 
 From the draft `matcher.js` we keep `Smoother`, `batteryBias`, `clamp` and
 `verdict`. `recommend`, `rampLimit` and `shouldSend` move to the post-MVP put
@@ -187,7 +210,9 @@ on `stop()`. An `n2k.js` output would sit in the same list (section 9).
 
 `app.registerResourceProvider({ type: 'solar-sailing', methods })` with
 `listResources` → `{ status }`, `getResource('status')` → latest
-snapshot plus per-source breakdown. `setResource` and `deleteResource` reject. This makes the data readable
+snapshot plus per-source breakdown (including position) and a trimmed
+forecast curve (`forecastCurve`: average W per slot until sunset plus one,
+at most 24). `setResource` and `deleteResource` reject. This makes the data readable
 anonymously under `allow_readonly`, unlike plugin routes (SPEC 5.2).
 
 ### 2.9 Webapp (`public/`)
@@ -242,13 +267,20 @@ JSDoc typedefs in `lib/types.js`, checked by `tsc --noEmit`.
 /** @typedef {{ id: string, watts?: number, rpm?: number, direction?: number,
  *    gearRatio?: number, inDrive: boolean, temperatures: Object<string, number>, time?: number,
  *    stale: boolean }} MotorReading */
-/** @typedef {{ id: string, soc?: number, watts?: number, time?: number,
- *    stale: boolean }} BatteryReading */
+/** @typedef {{ id: string, soc?: number, watts?: number, capacityWh?: number,
+ *    time?: number, stale: boolean }} BatteryReading */
 /** @typedef {{ path: string, watts: number, time?: number,
  *    stale: boolean }} PowerReading */
+/** @typedef {{ lat: number, lon: number, time?: number, stale: boolean }} PositionReading */
+/** @typedef {{ t: number, solarWh: number, houseWh: number }} ForecastHour */
+/** @typedef {{ time?: number, stale: boolean, hours: ForecastHour[],
+ *    status?: 'surplus'|'rising'|'stable'|'deficit'|'critical',
+ *    timeToFull?: number, surplusWh?: number,
+ *    surplusFrom?: number, surplusTo?: number }} ForecastReading */
 /** @typedef {{ solar: SolarReading[], solarFallback: boolean,
  *    motor?: MotorReading, battery?: BatteryReading, dcSystem?: PowerReading,
- *    timezoneOffsetMin?: number }} Readings */
+ *    timezoneOffsetMin?: number, position?: PositionReading,
+ *    forecast?: ForecastReading }} Readings */
 /** @typedef {'matched'|'over'|'under'|'unknown'} MatchState */
 /** @typedef {{ t: number, mode: 'active'|'idle', inDrive: boolean,
  *    solarW?: number, houseW?: number,
@@ -256,7 +288,10 @@ JSDoc typedefs in `lib/types.js`, checked by `tsc --noEmit`.
  *    motorW?: number, motorSmoothedW?: number, balanceW?: number,
  *    matchState: MatchState, targetRpm?: number, targetShaftRpm?: number,
  *    gearRatio?: number, alarm: boolean,
- *    solarEnergyJ: number, motorEnergyJ: number }} Snapshot */
+ *    solarEnergyJ: number, motorEnergyJ: number, forecastBiasW: number,
+ *    sunset?: number, dayBudgetW?: number, dayBudgetBasis?: 'target'|'neutral',
+ *    sunsetTargetSoc?: number, solarRemainingJ?: number, houseRemainingJ?: number,
+ *    bestHours?: { start: number, end: number }, forecastStatus?: string }} Snapshot */
 ```
 
 Internally RPM is rpm (what the propeller law and logs use); the advisory
@@ -321,6 +356,9 @@ signalk-solar-sailing/
 │   ├── propeller.js         k learning + persistence
 │   ├── energy.js            energy today (draft, History class removed)
 │   ├── history.js           History API seed for today's energy
+│   ├── sun.js               sunrise / sunset (NOAA)
+│   ├── forecast.js          forecast parsing, day budget, bias, best hours
+│   ├── cache.js             last-value cache for the forecast subscription
 │   ├── resources.js         resource provider
 │   └── outputs/advisory.js  paths, metadata, notification
 ├── public/
@@ -330,6 +368,7 @@ signalk-solar-sailing/
 │   └── js/{app,stream,api,state,units,time,backoff,context,view}.js + elements/*.js
 ├── test/
 │   ├── fixtures/curtis-2026-10-25.json   trimmed from laserbrain logs
+│   ├── fixtures/energy-prediction-2026-11-15.json   predictor output from the boat
 │   └── *.test.js
 ├── docs/
 │   ├── SPEC.md
@@ -390,11 +429,8 @@ boat's server meets it (2026-11-02).
   `nmea2000JsonOut`) can send, for example, PGN 127488 as a virtual engine
   instance with target RPM, and 127508/127751 for balance, without changing
   paths. Which PGN the plotter actually renders needs on-board testing.
-- **Solar forecast** (SPEC 9.2): a `lib/forecast.js` reader for
-  `electrical.energy.prediction.*` that adds optional fields to `Readings`;
-  the engine computes a day budget beside the live one and adjusts the SoC
-  bias from `status` / `timeToFull`. Absent data leaves today's behaviour
-  untouched, so it needs no change to the paths or the tick.
+- **Solar forecast** (SPEC 9.2): built in plan 10 (2.2, 2.3). The webapp
+  view of it (day budget, best hours, forecast curve) is plan 12.
 - **Motor control** via the `put` output (2.7) once a writable limit exists.
 - **Range estimate**: needs speed through water; the engine snapshot already has
   budget and target RPM to fit speed against.

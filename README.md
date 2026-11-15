@@ -22,6 +22,10 @@ the motor.
 - Optional: a History API provider such as
   [signalk-questdb](https://www.npmjs.com/package/signalk-questdb), so today's
   energy survives restarts.
+- Optional: [signalk-energy-predictor](https://www.npmjs.com/package/@meri-imperiumi/signalk-energy-predictor)
+  for a solar forecast (day budget, forecast bias, best hours), and a GPS
+  position for the sunset time. Without them those values are simply
+  unknown; everything else works the same.
 
 ## How it works
 
@@ -38,6 +42,21 @@ reads the current values and computes:
   `unknown` when the motor is not in drive or data is missing.
 - **Target RPM**: from a propeller model `P = k · rpmⁿ` that it learns while
   you motor at steady speeds.
+
+With a solar forecast from signalk-energy-predictor it also computes:
+
+- **Forecast bias** on the solar budget: up to +300 W while the forecast says
+  the bank will fill anyway (solar that would be curtailed), −100 W on
+  `deficit`, −200 W on `critical`.
+- **Day budget**: the steady motor power that uses the forecast solar until
+  sunset. By default it ends the day where the bank is now (SoC-neutral);
+  set a **sunset target SoC** to aim at a charge level at sunset instead, so
+  a full bank can be spent on the way and a low one is refilled. The target
+  is raised if needed so the bank gets through the night above the minimum
+  SoC.
+- **Best hours** to motor today: the 3 h window before sunset with the most
+  forecast surplus.
+- **Sunset** from the boat's position (or from the forecast without one).
 
 ## Webapp
 
@@ -84,6 +103,16 @@ All on the self vessel, in SI units with `meta.units`:
 | `plugin.solarsailing.targetShaftRevolutions` | Hz (only with a gear ratio) |
 | `plugin.solarsailing.solarEnergyToday` | J |
 | `plugin.solarsailing.motorEnergyToday` | J |
+| `plugin.solarsailing.forecastBias` | W |
+| `plugin.solarsailing.dayBudget` | W |
+| `plugin.solarsailing.dayBudgetBasis` | `target` / `neutral` |
+| `plugin.solarsailing.sunsetTargetSoc` | ratio |
+| `plugin.solarsailing.solarRemaining` | J (forecast, until sunset) |
+| `plugin.solarsailing.houseRemaining` | J (forecast, until sunset) |
+| `plugin.solarsailing.sunset` | ISO 8601 time |
+| `plugin.solarsailing.bestHoursStart` / `bestHoursEnd` | ISO 8601 time |
+
+Unknown values are published as `null`.
 
 Notification `notifications.solarsailing.overBudget` (`warn`) when the motor
 stays over budget for 60 s while in drive.
@@ -103,6 +132,11 @@ Everything has a default; the settings you are most likely to change:
 - **Max motor power**: clamps the budget.
 - **Path overrides** for solar, motor power and battery on non-Victron boats.
 - **Reset learned propeller** after a prop change.
+- **Sunset target SoC** (default 0 = off) and **battery capacity** (default
+  14 500 Wh, the reference boat's bank: **set your own**, or 0 to use the
+  bank's `capacity.nominal`). The capacity only matters once a target is set.
+- **Use solar forecast**, its path, and the surplus assist cap and deficit /
+  critical reserves.
 
 ## Development
 

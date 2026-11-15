@@ -46,7 +46,8 @@
     ],
     "recommends": [
       "signalk-venus-plugin",
-      "signalk-questdb"
+      "signalk-questdb",
+      "@meri-imperiumi/signalk-energy-predictor"
     ]
   },
   "devDependencies": {

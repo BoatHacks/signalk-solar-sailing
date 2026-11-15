@@ -95,3 +95,28 @@ test('metadata: units and timeout via meta delta, displayUnits via setDefaultMet
   await createAdvisoryOutput(noDefault, 'p').registerMeta()
   assert.equal(noDefault.messages.length, 1)
 })
+
+test('forecast paths: null when unknown, ISO times to the minute', () => {
+  let v = snapshotValues(/** @type {any} */ (snap({ forecastBiasW: 0 })))
+  for (const k of ['dayBudget', 'dayBudgetBasis', 'sunsetTargetSoc', 'solarRemaining', 'houseRemaining', 'sunset', 'bestHoursStart', 'bestHoursEnd']) {
+    assert.equal(v[k], null, k)
+  }
+  assert.equal(v.forecastBias, 0)
+  v = snapshotValues(/** @type {any} */ (snap({
+    forecastBiasW: -100,
+    dayBudgetW: 321.26,
+    dayBudgetBasis: 'target',
+    sunsetTargetSoc: 0.227724,
+    solarRemainingJ: 1234.5,
+    houseRemainingJ: 99.4,
+    sunset: Date.parse('2026-11-15T15:18:46.300Z'),
+    bestHours: { start: Date.parse('2026-11-15T10:15:02Z'), end: Date.parse('2026-11-15T13:15:02Z') }
+  })))
+  assert.equal(v.dayBudget, 321.3)
+  assert.equal(v.dayBudgetBasis, 'target')
+  assert.equal(v.sunsetTargetSoc, 0.2277)
+  assert.equal(v.solarRemaining, 1235)
+  assert.equal(v.sunset, '2026-11-15T15:19:00.000Z')
+  assert.equal(v.bestHoursStart, '2026-11-15T10:15:00.000Z')
+  assert.equal(v.bestHoursEnd, '2026-11-15T13:15:00.000Z')
+})

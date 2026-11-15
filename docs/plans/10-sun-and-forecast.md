@@ -163,7 +163,8 @@ surplus window added by hand covers the surplus bias.
   reserve when `minSoc + night / capacity` is higher (fixture night:
   ≈ 380 Wh on the default 14 500 Wh → floor 22.6 %); target 0 →
   `undefined`; capacity 0 with `capacity.nominal` published → that value
-  (J → Wh); capacity 0 without it → `undefined`.
+  (J → Wh); capacity 0 without it → `undefined`. (Built: the fixture's
+  forecast-derived night, 17:15Z to 08:15Z, is 402 Wh → floor 22.8 %.)
 - `forecastBias`: surplus with and without `timeToFull`, with SoC below
   `socLow` (no assist), cap applied, `surplus.to` in the past; deficit;
   critical; stale → 0.
@@ -181,15 +182,15 @@ surplus window added by hand covers the surplus bias.
   registry test) still passes.
 
 ## Implementation Steps
-- [ ] `lib/sun.js` + tests
-- [ ] `lib/forecast.js` + fixture + tests
-- [ ] Readings, sources, config fields
-- [ ] Engine: forecast bias, sunset, day budget (target and neutral),
+- [x] `lib/sun.js` + tests
+- [x] `lib/forecast.js` + fixture + tests
+- [x] Readings, sources, config fields
+- [x] Engine: forecast bias, sunset, day budget (target and neutral),
       sunset target SoC, best hours
-- [ ] Advisory paths and metadata; check the server's `displayUnits`
+- [x] Advisory paths and metadata; check the server's `displayUnits`
       categories for the new units
-- [ ] Resources: forecast curve in `status`
-- [ ] SPEC 2.2, 4, 5.1, 8, 9.2 (day budget now aims at the sunset target) and ARCHITECTURE 2.2, 2.3, 3, 9 updated;
+- [x] Resources: forecast curve in `status`
+- [x] SPEC 2.2, 4, 5.1, 8, 9.2 (day budget now aims at the sunset target) and ARCHITECTURE 2.2, 2.3, 3, 9 updated;
       `recommends` and README; CHANGELOG
 
 ## Files to Create/Modify

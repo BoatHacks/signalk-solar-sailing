@@ -75,6 +75,30 @@ readings with their own timestamps and sign conventions.
 | between | linear interpolation |
 | unknown | 0 |
 
+The live budget is `solar − house + socBias + forecastBias`. The
+**forecast bias** (0 without a fresh forecast, 9.2) is `+min(surplus ÷ time
+until the surplus ends, surplusAssistCapW)` while the forecast says the bank
+will fill (`status` `surplus`, `timeToFull` set, SoC above `socLow`),
+`−deficitReserveW` on `deficit` and `−criticalReserveW` on `critical`.
+
+**Day budget** (shown beside the live budget, advice only: the match state
+stays against the live budget):
+
+- `target` basis, when a sunset target SoC is set and SoC and capacity are
+  known: `(solar − house until sunset + (SoC − target) · capacity) ÷ time
+  left`, where the target is raised to `minSoc + forecast night house load ÷
+  capacity` if that is higher. `socBias` is not added: the bank term already
+  holds back when low and spends when full.
+- `neutral` basis otherwise (the default, target 0 = off):
+  `(solar − house until sunset) ÷ time left + socBias`.
+- Clamped to `[0, max motor power]`; unknown in the last 15 min before sunset
+  and after it.
+
+Sunset comes from `navigation.position` (NOAA equations, −0.833° horizon),
+else from the last forecast hour today with solar above 5 Wh. **Best hours**
+is the `bestHoursWindowH` window before sunset with the most forecast
+`solar − house`.
+
 ### 2.3 Match state
 
 With tolerance `max(50 W, 10 % of budget)`:
@@ -156,6 +180,18 @@ The plugin runs at two rates:
   dropout is not mistaken for a cloud.
 - **Duplicate deltas** (venus plugin ≤ 2.4.1): harmless, because the plugin reads
   the current value on a fixed tick instead of counting deltas.
+- **Position** (optional): `navigation.position`, for the sunset time; stale
+  after `positionMaxAgeMinutes` (default 60 min).
+- **Battery capacity** (optional): `<battery>.capacity.nominal` (J), used for
+  the sunset target only when `batteryCapacityWh` is 0.
+- **Solar forecast** (optional): `electrical.energy.prediction.*` from
+  `@meri-imperiumi/signalk-energy-predictor` (`forecast.hourly`, `status`,
+  `timeToFull`, `surplus`, `surplus.from`/`to`). The predictor publishes
+  hourly and the server nulls a path 60 s after its last update, so these
+  values are kept from a subscription in a last-value cache, seeded from the
+  tree (`state.lastValue`) on start; the forecast's own age decides
+  freshness (`forecastMaxAgeMinutes`, default 180 min). Forecast slots are
+  `[time, time + 1 h)` and are prorated, never aligned to the clock hour.
 
 ## 5. API Specification
 
@@ -176,6 +212,16 @@ All under `plugin.solarsailing.` (self vessel), with `meta.units`:
 | `targetShaftRevolutions` | Hz | Target shaft RPM; only published when a gear ratio is known |
 | `solarEnergyToday` | J | Solar energy since local midnight |
 | `motorEnergyToday` | J | Motor energy since local midnight |
+| `forecastBias` | W | Forecast adjustment added to the live budget (0 without forecast) |
+| `dayBudget` | W | Steady motor power that uses the forecast energy until sunset (2.2) |
+| `dayBudgetBasis` | — | `target` / `neutral` |
+| `sunsetTargetSoc` | ratio | Effective sunset target (configured, raised for the night reserve) |
+| `solarRemaining` | J | Forecast solar energy from now until sunset |
+| `houseRemaining` | J | Forecast house energy from now until sunset |
+| `sunset` | — | Sunset today (ISO 8601 time, to the minute) |
+| `bestHoursStart` / `bestHoursEnd` | — | Best window to motor today (ISO 8601 time) |
+
+Unknown values are published as `null`.
 
 Notification `notifications.solarsailing.overBudget`, state `warn`,
 when `over` persists for `overBudgetDelaySeconds` (default 60 s) while in drive.
@@ -187,7 +233,10 @@ Served through the Signal K v2 resources API (anonymously readable, unlike
 plugin routes, which are admin-only):
 
 - `GET /signalk/v2/api/resources/solar-sailing/status` — snapshot plus
-  per-source breakdown.
+  per-source breakdown, and `forecast: { status, stale, timestamp, age,
+  hours: [{ t, solarW, houseW }] }` (average W per forecast slot, until
+  sunset plus one, at most 24) so the chart never subscribes to the
+  predictor's large JSON value.
 - History for the chart: `GET /signalk/v2/api/history/values?paths=plugin.solarsailing.solarPower,…&duration=PT6H`
   (server History API, answered by whichever history provider is installed).
 
@@ -277,6 +326,15 @@ squirrel under a sun, at a tiller or with a propeller), 512 px PNG.
 | Propeller model fallback (`k`, `n`) | none / 3 (target RPM hidden until learned) |
 | Propulsion path | `propulsion.main` |
 | Path overrides (solar, motor power, battery) | auto-discover |
+| Use solar forecast | on (no effect without a forecast) |
+| Forecast path | `electrical.energy.prediction` |
+| forecastMaxAgeMinutes | 180 min |
+| surplusAssistCapW / deficitReserveW / criticalReserveW | 300 W / 100 W / 200 W |
+| bestHoursWindowH | 3 h |
+| positionMaxAgeMinutes | 60 min |
+| Sunset target SoC | 0 = off (day budget SoC-neutral) |
+| Battery capacity | 14 500 Wh (reference boat; 0 = `capacity.nominal`) |
+| Minimum SoC, night floor | 20 % |
 
 ## 9. MVP Scope
 
@@ -314,7 +372,7 @@ Not scored, but required for the App Store listing:
   power) and `signalk-questdb` (History API). Nothing in `signalk.requires`:
   every source can be overridden for non-Victron boats, and without a history
   provider only the chart is empty. `@meri-imperiumi/signalk-energy-predictor`
-  is added when the forecast input (9.2) ships.
+  (optional solar forecast, 9.2) is recommended too.
 - GitHub repo description, homepage `https://www.npmjs.com/package/signalk-solar-sailing`,
   and topics `signalk`, `signalk-plugin`, `marine`, `solar`, `electric-propulsion`.
 
@@ -329,13 +387,14 @@ Not scored, but required for the App Store listing:
   without changing them.
 - **Solar forecast input** (optional, from
   `@meri-imperiumi/signalk-energy-predictor`, `electrical.energy.prediction.*`):
-  - *Day budget*: (remaining forecast solar until sunset − forecast house
-    energy) ÷ hours left, shown beside the live budget as a steadier target.
-  - *Forecast-aware SoC bias*: raise the battery assist when `status` is
-    `surplus` or `timeToFull` is near (energy that would be curtailed anyway);
-    raise the charge reserve on `deficit` / `critical`.
-  - *Best hours to motor*: forecast curve on the chart and a peak-sun hint.
-  - *Range until sunset* at the current budget (feeds the range estimate).
+  **built in plan 10** (rules in 2.2, inputs in 4, paths in 5.1):
+  - *Day budget*: forecast energy until sunset ÷ time left, aimed at the
+    sunset target SoC when one is set, else SoC-neutral.
+  - *Forecast bias* on the live budget: surplus assist, deficit and critical
+    reserves.
+  - *Best hours to motor*: published as paths; the webapp curve and hint
+    follow in plan 12.
+  - *Range until sunset* at the current budget (plan 11).
   The plugin works unchanged when no forecast is published.
 - **Range/speed estimate** ("at this budget you make X kn, reach Y by sunset").
 

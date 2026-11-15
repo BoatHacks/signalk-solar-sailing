@@ -193,3 +193,57 @@ test('propeller model persisted on stop and reset by config', async () => {
   await assert.rejects(readFile(file, 'utf8'))
   p.stop()
 })
+
+test('forecast: seeded from the tree, then kept from the subscription', async () => {
+  const run = Date.parse('2026-11-15T14:15:02.286Z')
+  mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: run + 10 * 60000 })
+  try {
+    const url = new URL('./fixtures/energy-prediction-2026-11-15.json', import.meta.url)
+    const node = JSON.parse(await readFile(url, 'utf8')).electrical.energy.prediction
+    // As the server serves it after its 60 s timeout.
+    node.forecast.hourly = { value: null, timestamp: node.forecast.hourly.timestamp, state: { timedOut: true, lastValue: node.forecast.hourly.value } }
+    const app = fakeApp()
+    app.tree['electrical.energy.prediction'] = node
+    const p = createPlugin(app)
+    p.start({})
+    await flush()
+    await flush()
+    const sub = app.subscriptions.find((x) => x.cmd.subscribe[0].path === 'electrical.energy.prediction.*')
+    assert.ok(sub)
+    let status = await statusOf(app)
+    assert.equal(status.forecast.status, 'stable')
+    assert.equal(status.forecast.hours.length > 0, true)
+    assert.equal(status.snapshot.forecastBiasW, 0)
+
+    sub.cb({ updates: [{ timestamp: new Date(Date.now()).toISOString(), values: [{ path: 'electrical.energy.prediction.status', value: 'deficit' }] }] })
+    sub.cb({ updates: [{ timestamp: new Date(Date.now() + 60000).toISOString(), values: [{ path: 'electrical.energy.prediction.status', value: null }] }] })
+    mock.timers.tick(10000)
+    status = await statusOf(app)
+    assert.equal(status.snapshot.forecastBiasW, -100)
+    assert.ok(paths(app).includes('plugin.solarsailing.dayBudget'))
+    p.stop()
+    assert.deepEqual(app.errors, [])
+  } finally {
+    mock.timers.reset()
+  }
+})
+
+test('forecast off: no forecast subscription, no forecast in the status', async () => {
+  const app = fakeApp()
+  const p = createPlugin(app)
+  p.start({ useForecast: false })
+  await flush()
+  await flush()
+  assert.equal(app.subscriptions.some((x) => x.cmd.subscribe[0].path.endsWith('prediction.*')), false)
+  assert.equal((await statusOf(app)).forecast, null)
+  p.stop()
+})
+
+test('config: empty or invalid forecast path falls back to the default', () => {
+  assert.equal(resolveConfig({ forecastPath: '' }).config.forecastPath, 'electrical.energy.prediction')
+  const { config, warnings } = resolveConfig({ forecastPath: 'a b' })
+  assert.equal(config.forecastPath, 'electrical.energy.prediction')
+  assert.equal(warnings.length, 1)
+  assert.equal(DEFAULTS.sunsetTargetSocPercent, 0)
+  assert.equal(DEFAULTS.batteryCapacityWh, 14500)
+})
