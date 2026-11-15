@@ -2,7 +2,7 @@
 
 ## Overview
 "At this budget you make X kn and cover Y nm before sunset; the next waypoint
-is reached at HH:MM, or needs Z W." The plugin learns how fast the boat goes
+is reached at HH:MM and the destination at HH:MM, or needs Z W." The plugin learns how fast the boat goes
 for a given motor power, then applies that to the day budget (or the live
 budget without a forecast) and to the time left until sunset from plan 10.
 Shared design, paths and config: [09](09-forecast-and-range.md).
@@ -74,32 +74,59 @@ should still be correctable:
   the basis is unknown or 0.
 - `rangeUntilSunset = speedAtBudget · secondsUntilSunset`; `undefined` after
   sunset or when sunset is unknown. Through water: the label says so.
-- **Waypoint** (only when a course is active): distance to the next point
-  from the Course API value `navigation.course.calcValues.distance`
-  (path to be confirmed on the server in step 1; ignore when stale or
-  absent).
-  - `waypointEta = now + distance / speedAtBudget`.
-  - `requiredSpeed = distance / secondsUntilSunset`;
+- **Next waypoint and final destination** (Tobi, 2026-11-15): both are
+  shown whenever a course is active. Distances come from the bundled
+  `@signalk/course-provider` (checked on the boat server, 2.37.0 with
+  course-provider 1.5.1); the plugin does no route geometry of its own:
+
+  | Target | Distance (m) | When |
+  |--------|--------------|------|
+  | Next waypoint | `navigation.course.calcValues.distance` | any active course |
+  | Final destination | `navigation.course.calcValues.route.distance` | active route; course-provider sums the remaining legs from `pointIndex` (respects `reverse` and the great-circle/rhumb setting) |
+  | Final destination, single-point course | same as next waypoint | `route.distance` is `null` without a route |
+
+  For each target, with `secondsLeft` until sunset:
+  - `eta = now + distance / speedAtBudget`;
+  - `requiredSpeed = distance / secondsLeft`,
     `requiredPower = (requiredSpeed / c)^(1/m)`, shown against the day
-    budget ("needs 620 W, 140 W over the day budget"). `undefined` after
-    sunset or when the inverse leaves the learned power range by more than
-    50 % (the power law is not trusted far outside its samples).
+    budget ("needs 620 W, 140 W over the day budget");
+  - `undefined` when the distance is stale or `null`, the model is not
+    ready, or (for `requiredPower`) after sunset or when the inverse leaves
+    the learned power range by more than 50 % (the power law is not
+    trusted far outside its samples). An ETA after sunset is still shown,
+    flagged `afterSunset`.
+  - course-provider's own `timeToGo`/`estimatedTimeOfArrival` are not
+    used: they come from the current VMC and are `null` whenever the boat
+    is not closing on the mark (stopped, or on the wrong tack), which is
+    exactly when the skipper asks "can I make it on the sun?".
+  - Caveats in the label: distances are along the route over ground,
+    speed is through the water, so current is not in the ETA; the arrival
+    circle is not subtracted (metres, irrelevant at these distances).
+  - Without course-provider (non-default servers) the course values are
+    absent and the waypoint lines are hidden; reading `app.getCourse()` and
+    the route resource to sum legs ourselves is possible but not planned.
 
 ### Engine and outputs
 - Engine owns a `SpeedModel` like the `PropellerModel`: observes in active
   mode only (learning pauses in idle, SPEC 2.6), computes the range fields
   every tick in both modes.
 - Snapshot gains `speedAtBudget?`, `rangeUntilSunsetM?`, `rangeBasis?`,
-  `waypointEta?`, `requiredPowerW?`, and `stw?` for the webapp.
+  `waypoint?` and `destination?` (each `{ distanceM, eta, afterSunset,
+  requiredPowerW? }`), and `stw?` for the webapp.
 - `index.js` loads and saves `speed.json` next to `propeller.json`.
 - `advisory.js`: `PATH_META` for `speedAtBudget` (m/s), `rangeUntilSunset`
-  (m), `rangeBasis`, `waypointEta`, `requiredPower` (W).
+  (m), `rangeBasis`, `waypointEta`, `waypointRequiredPower` (W),
+  `destinationEta`, `destinationRequiredPower` (W). Distances are not
+  republished; they stay course-provider's paths.
 - `resources.js`: `status` gains the model state (`ready`, sample count,
   `c`, `m`, power range covered) for the webapp's "learning…" hint.
 
 ### Sources
 `readSpeed` for STW (configurable path), `readNavState` for
-`navigation.state`, `readCourse` for the distance. All optional.
+`navigation.state`, `readCourse` for `calcValues.distance` and
+`calcValues.route.distance` (read on the tick: course-provider publishes
+them continuously, so the server's 60 s timeout does not bite). All
+optional.
 
 ## Test Strategy
 - `powerlaw.js` refactor: existing `propeller.test.js` unchanged and green.
@@ -110,7 +137,9 @@ should still be correctable:
   round trip; never NaN.
 - `range.js`: basis choice; `undefined` cases (not ready, no sunset, after
   sunset, budget 0); `requiredPower` inverse round trip; the out-of-range
-  guard.
+  guard; destination = route distance with a route, = next-point distance
+  without one; ETA after sunset flagged; no course → both `undefined`;
+  a `null` course-provider ETA (VMC ≤ 0) does not affect ours.
 - Engine: learning only in active mode; range filled in idle once learned;
   without STW, forecast or course the snapshot equals plan 10's output.
 - The DST810 is unplugged over the winter and the 2026-10-25 Curtis log has
@@ -120,7 +149,9 @@ should still be correctable:
   clamp range and the range values appear.
 
 ## Implementation Steps
-- [ ] Confirm the Course API distance path and the STW source on the boat
+- [x] Confirm the course paths on the boat (2026-11-15: `calcValues.distance`
+      and `calcValues.route.distance` from course-provider 1.5.1)
+- [ ] Confirm the STW path when the DST810 is back
 - [ ] `lib/powerlaw.js` refactor, propeller tests unchanged
 - [ ] `lib/speed.js` + tests (incl. `stwFactor` rescaling and the
       SOG/STW heading-sector suggestion)

@@ -146,7 +146,7 @@ target_eff = max(sunsetTargetSoc, minSoc + nightHouseWh / capacityWh)
  *    timeToFull?: number, surplusWh?: number,
  *    surplusFrom?: number, surplusTo?: number }} ForecastReading */
 /** @typedef {{ mps: number, time?: number, stale: boolean }} SpeedReading */
-/** @typedef {{ distanceM?: number, time?: number, stale: boolean }} CourseReading */
+/** @typedef {{ nextM?: number, routeM?: number, time?: number, stale: boolean }} CourseReading */
 ```
 
 `Readings` gains optional `position`, `forecast`, `stw`, `navState` and
@@ -172,7 +172,9 @@ timestamp unit; meta description says "ISO 8601 time").
 | `rangeUntilSunset` | m | 11 | Distance through water at that speed until sunset |
 | `rangeBasis` | — | 11 | `dayBudget` / `budget` (which budget the range uses) |
 | `waypointEta` | — | 11 | ETA at the next waypoint at `speedAtBudget` (ISO) |
-| `requiredPower` | W | 11 | Motor power needed to reach the waypoint by sunset |
+| `waypointRequiredPower` | W | 11 | Motor power needed to reach the next waypoint by sunset |
+| `destinationEta` | — | 11 | ETA at the final destination (end of the active route, or the single destination) |
+| `destinationRequiredPower` | W | 11 | Motor power needed to reach the final destination by sunset |
 
 `socBias` keeps its meaning (the SoC curve of SPEC 2.2 only), so the webapp
 and history can show how much of the budget came from the forecast.

@@ -17,8 +17,10 @@ Shared design: [09](09-forecast-and-range.md).
 - **Forecast bias** shown in the house/budget breakdown as its own line
   ("forecast: surplus +120 W"), so the skipper can see why the budget moved.
 - **`<ss-range>`** (new element): speed at budget in kn, range until sunset
-  in nm, sunset time, and the waypoint line ("WP 14.2 nm, ETA 15:40" or
-  "needs 620 W"). States: learning (sample count), no log, after sunset,
+  in nm, sunset time, and two course lines when a course is active: next
+  waypoint and final destination ("WP 3.1 nm, 13:05" / "Dest 14.2 nm,
+  ETA 17:40, after sunset, needs 620 W"). With a single-point course only
+  one line is shown. States: learning (sample count), no log, after sunset,
   unknown (grey dash, never a 0). Phone: below the budget bar; desktop:
   beside the energy panel.
 - **Chart**: the forecast curve (average W per hour from `status.forecast`)
