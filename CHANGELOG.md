@@ -20,6 +20,17 @@ All notable changes to this project are documented here. The format follows
     in the status resource.
   - The forecast is kept from a subscription, because the server nulls the
     predictor's hourly values after 60 s.
+- Range and speed estimate (plan 11). Hidden until a speed log has taught
+  the speed model, so nothing changes without one.
+  - Learns speed through water against motor power (`v = c · Pᵐ`, `m` from
+    ⅓) from steady motoring, never while sailing; stored in `speed.json`,
+    with a reset switch and an optional fallback `c`, `m`.
+  - STW correction factor for a fouled log (default 1.0), plus a suggested
+    factor from SOG/STW over several headings in the status resource.
+  - New paths `plugin.solarsailing.speedAtBudget`, `rangeUntilSunset`,
+    `rangeBasis`, and, with an active course, `waypointEta`,
+    `waypointRequiredPower`, `destinationEta`, `destinationRequiredPower`
+    (distances from course-provider).
 
 ## [0.1.2] - 2026-11-15
 

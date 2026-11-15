@@ -152,14 +152,17 @@ optional.
 - [x] Confirm the course paths on the boat (2026-11-15: `calcValues.distance`
       and `calcValues.route.distance` from course-provider 1.5.1)
 - [ ] Confirm the STW path when the DST810 is back
-- [ ] `lib/powerlaw.js` refactor, propeller tests unchanged
-- [ ] `lib/speed.js` + tests (incl. `stwFactor` rescaling and the
+- [x] `lib/powerlaw.js` refactor, propeller tests unchanged
+- [x] `lib/speed.js` + tests (incl. `stwFactor` rescaling and the
       SOG/STW heading-sector suggestion)
-- [ ] `lib/range.js` + tests
-- [ ] Sources, config, engine, persistence in `index.js`
-- [ ] Advisory paths and metadata, resources
-- [ ] SPEC 2.4 (speed model), 5.1, 7, 8 and ARCHITECTURE 2.3, 2.4, 3, 9
+- [x] `lib/range.js` + tests
+- [x] Sources, config, engine, persistence in `index.js`
+- [x] Advisory paths and metadata, resources
+- [x] SPEC 2.4 (speed model), 5.1, 7, 8 and ARCHITECTURE 2.3, 2.4, 3, 9
       updated; CHANGELOG
+- [ ] Before shipping: set a test route on the plotter and check
+      `waypointEta`, `destinationEta` and the required powers against
+      course-provider's distances (no route on the server yet, 2026-11-15)
 - [ ] Spring, DST810 back: capture an STW fixture, check the learned
       `c`, `m` against it, tune the steady-state gate if needed, and
       compare the suggested `stwFactor` before and after cleaning the wheel

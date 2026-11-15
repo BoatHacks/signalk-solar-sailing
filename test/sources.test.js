@@ -205,3 +205,43 @@ test('forecast read from the cached node only when useForecast is on', () => {
   const r = readSources({}, cfg(), NOW)
   assert.deepEqual([r.forecast, r.position], [undefined, undefined])
 })
+
+test('speed through water: configured path, stale like any value, empty path skips', () => {
+  const tree = treeOf({ 'navigation.speedThroughWater': 2.1 }, NOW)
+  assert.deepEqual(readSources(tree, cfg(), NOW).stw, { mps: 2.1, time: NOW, stale: false })
+  assert.equal(readSources(tree, cfg(), NOW + 11000).stw?.stale, true)
+  assert.equal(readSources(tree, cfg({ speedThroughWaterPath: '' }), NOW).stw, undefined)
+  const other = treeOf({ 'navigation.log.stw': 1.5 }, NOW)
+  assert.equal(readSources(other, cfg({ speedThroughWaterPath: 'navigation.log.stw' }), NOW).stw?.mps, 1.5)
+  setIn(tree, 'navigation.speedThroughWater', { value: null, timestamp: new Date(NOW).toISOString() })
+  assert.equal(readSources(tree, cfg(), NOW).stw, undefined)
+})
+
+test('ground: SOG and COG together, stale when either is old', () => {
+  const tree = treeOf({ 'navigation.speedOverGround': 2, 'navigation.courseOverGroundTrue': 1 }, NOW)
+  assert.deepEqual(readSources(tree, cfg(), NOW).ground, { sog: 2, cog: 1, time: NOW, stale: false })
+  setIn(tree, 'navigation.courseOverGroundTrue', leaf(1, NOW - 20000))
+  assert.equal(readSources(tree, cfg(), NOW).ground?.stale, true)
+  assert.equal(readSources(treeOf({ 'navigation.speedOverGround': 2 }, NOW), cfg(), NOW).ground, undefined)
+})
+
+test('course: next point and route distance; null route distance means no route', () => {
+  const tree = treeOf({ 'navigation.course.calcValues.distance': 9000, 'navigation.course.calcValues.route.distance': 36000 }, NOW)
+  // course-provider's own ETA is null whenever VMC <= 0; it is not read.
+  setIn(tree, 'navigation.course.calcValues.timeToGo', { value: null, timestamp: new Date(NOW).toISOString() })
+  setIn(tree, 'navigation.course.calcValues.estimatedTimeOfArrival', { value: null, timestamp: new Date(NOW).toISOString() })
+  assert.deepEqual(readSources(tree, cfg(), NOW).course, { nextM: 9000, routeM: 36000, time: NOW, stale: false })
+  setIn(tree, 'navigation.course.calcValues.route.distance', { value: null, timestamp: new Date(NOW).toISOString() })
+  assert.equal(readSources(tree, cfg(), NOW).course?.routeM, undefined)
+  assert.equal(readSources(tree, cfg(), NOW + 121000).course?.stale, true)
+  setIn(tree, 'navigation.course.calcValues.distance', { value: null, timestamp: new Date(NOW).toISOString() })
+  assert.equal(readSources(tree, cfg(), NOW).course, undefined)
+})
+
+test('navigation state from the kept leaf or a bare string', () => {
+  assert.equal(readSources({}, cfg(), NOW, undefined, 'sailing').navState, 'sailing')
+  assert.equal(readSources({}, cfg(), NOW, undefined, { value: 'motoring' }).navState, 'motoring')
+  assert.equal(readSources({}, cfg(), NOW, undefined, { value: null }).navState, undefined)
+  const r = readSources({}, cfg(), NOW)
+  assert.deepEqual([r.stw, r.ground, r.navState, r.course], [undefined, undefined, undefined, undefined])
+})
