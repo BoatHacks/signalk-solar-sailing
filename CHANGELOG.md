@@ -5,6 +5,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-15
+
+### Fixed
+
+- House load fell back to the configured value (0 W by default) whenever the
+  motor controller published nothing, for example while switched off, so the
+  solar budget was too high at anchor. A motor with no data at all now counts
+  as 0 W for the DC system and battery balance formulas; a stale motor still
+  makes them unavailable.
+
 ## [0.1.0] - 2026-11-08
 
 ### Added
@@ -26,5 +36,6 @@ All notable changes to this project are documented here. The format follows
   Chromium 69 chart plotters.
 - App icon, screenshots and the npm publish workflow.
 
-[Unreleased]: https://github.com/BoatHacks/signalk-solar-sailing/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/BoatHacks/signalk-solar-sailing/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/BoatHacks/signalk-solar-sailing/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/BoatHacks/signalk-solar-sailing/releases/tag/v0.1.0
