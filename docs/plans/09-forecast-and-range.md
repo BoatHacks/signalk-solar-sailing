@@ -97,9 +97,11 @@ Polar day: `alwaysUp` → horizon is the end of the forecast (or 24 h); polar
 night or after sunset → `null` and the webapp says "after sunset".
 
 ## Sunset target SoC (Tobi, 2026-11-15)
-The day budget aims at a target state of charge at sunset instead of
-"end the day where you started", so a full bank in the morning can be spent
-on the way and a low one is refilled.
+When a target is set, the day budget aims at a state of charge at sunset
+instead of "end the day where you started", so a full bank in the morning
+can be spent on the way and a low one is refilled. **Off by default**
+(Tobi, 2026-11-15): out of the box the day budget is SoC-neutral, as
+SPEC 9.2 first described it.
 
 ```
 bankWh     = (SoC_now − target_eff) · capacityWh          (negative = charge)
@@ -107,9 +109,9 @@ dayBudget  = clamp((solarWh − houseWh + bankWh) · 3600 / secondsLeft, 0, max)
 target_eff = max(sunsetTargetSoc, minSoc + nightHouseWh / capacityWh)
 ```
 
-- **Target**: config `sunsetTargetSocPercent`, default 90 % (the `socHigh`
-  default, so the bank goes into the night nearly full). 0 turns the
-  target off.
+- **Target**: config `sunsetTargetSocPercent`, default 0 = off. A typical
+  value is the `socHigh` default of 90 %, so the bank goes into the night
+  nearly full.
 - **Capacity**: config `batteryCapacityWh`, else the bank's
   `capacity.nominal` (J, Signal K schema) if published, else unknown. On
   this boat nothing publishes it; the predictor's config says 302 Ah × 48 V,
@@ -194,7 +196,7 @@ the server's unit definitions in plan 10, the same way `Wh` was chosen over
 | Surplus assist cap | 300 W | 10 |
 | Deficit reserve / critical reserve | 100 W / 200 W | 10 |
 | Best-hours window | 3 h | 10 |
-| Sunset target SoC | 90 % (0 = off, SoC-neutral) | 10 |
+| Sunset target SoC | 0 = off (SoC-neutral) | 10 |
 | Battery capacity | 0 Wh = from `capacity.nominal`, else unknown | 10 |
 | Minimum SoC (night floor) | 20 % | 10 |
 | Position max age | 60 min | 10 |
@@ -220,7 +222,8 @@ All have defaults in the schema (registry: schema criterion).
    `propulsion.main` currently holds only the gear ratio from `baseDeltas`.
    To confirm the next time the motor runs (details in plan 10).
 2. **Day budget and the bank.** Answered (Tobi, 2026-11-15): make it
-   target-SoC aware from the start. See "Sunset target SoC" above.
+   target-SoC aware from the start, configurable and off by default. See
+   "Sunset target SoC" above.
 3. **Speed model input.** Answered (Tobi, 2026-11-15): learn speed from
    motor power. The propeller learner's behaviour does not change; plan 11
    only moves its shared fitting code into `lib/powerlaw.js`, guarded by the

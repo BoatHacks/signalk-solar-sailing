@@ -158,7 +158,8 @@ surplus window added by hand covers the surplus bias.
   motor power; `undefined` under 15 min left and after sunset; SoC below
   target gives a lower budget than neutral, above target a higher one;
   `socBias` is not added on the `target` basis.
-- `sunsetTarget`: configured target used as is; raised by the night
+- `sunsetTarget`: default config (target 0) → `undefined`, so the day
+  budget is `neutral`; configured target used as is; raised by the night
   reserve when `minSoc + night / capacity` is higher (fixture night:
   ≈ 380 Wh on 14 500 Wh → floor 22.6 %); target 0 → `undefined`; no
   capacity → `undefined`; capacity from `capacity.nominal` in J when config
