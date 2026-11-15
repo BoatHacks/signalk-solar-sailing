@@ -147,7 +147,11 @@ The plugin runs at two rates:
   shaft RPM; when absent everything is shown in motor RPM only.
 - **Battery**: one configured bank under `electrical.batteries.<id>`
   (first one found by default) for SoC and power.
-- **Staleness**: a value older than `staleSeconds` (default 10 s) is ignored. If
+- **Staleness**: a value older than `staleSeconds` (default 10 s) is ignored.
+  DC system power and battery values use `changeOnlyStaleSeconds` (default
+  120 s) instead: Victron Venus sends them only when they change, so a steady
+  reading at anchor can be a minute old and is still current. A value the
+  server has timed out (published as `null`) counts as absent. If
   all solar sources are stale, the budget is `unknown`, never zero, so a data
   dropout is not mistaken for a cloud.
 - **Duplicate deltas** (venus plugin ≤ 2.4.1): harmless, because the plugin reads
@@ -265,6 +269,7 @@ squirrel under a sun, at a tiller or with a propeller), 512 px PNG.
 | chargeReserveW / batteryAssistW | 100 W / 0 W |
 | Smoothing time constant | 30 s |
 | staleSeconds | 10 s |
+| changeOnlyStaleSeconds (DC system power, battery) | 120 s |
 | overBudgetDelaySeconds | 60 s |
 | Idle power threshold (in-drive) | 15 W |
 | idleAfterSeconds | 30 s |

@@ -110,11 +110,30 @@ test('battery: first bank, configured id, override and sign inversion', () => {
   assert.equal(readBattery({}, cfg(), NOW), undefined)
 })
 
+test('battery: change-only values stay usable for changeOnlyStaleSeconds', () => {
+  const tree = treeOf({
+    'electrical.batteries.main.stateOfCharge': 0.886,
+    'electrical.batteries.main.power': -10.6
+  }, NOW)
+  const at = (/** @type {number} */ s) => pick(readBattery(tree, cfg({ batteryId: 'main' }), NOW + s * 1000))
+  assert.deepEqual(at(60), { id: 'main', soc: 0.886, watts: -10.6 })
+  assert.deepEqual(at(121), { id: 'main', soc: undefined, watts: undefined })
+})
+
+test('a value the server has timed out (null) is absent, not 0', () => {
+  const tree = treeOf({ 'electrical.venus.dcPower': 10.6 }, NOW)
+  tree.electrical.venus.dcPower.value = null
+  assert.equal(readSources(tree, cfg(), NOW).dcSystem, undefined)
+})
+
 test('DC system power from the configured path, stale like any value', () => {
   const tree = treeOf({ 'electrical.venus.dcPower': 260, 'my.dc': 10 }, NOW)
   assert.deepEqual(pick(readSources(tree, cfg(), NOW).dcSystem, ['watts', 'stale']), { watts: 260, stale: false })
   assert.equal(readSources(tree, cfg({ dcSystemPowerPath: 'my.dc' }), NOW).dcSystem.watts, 10)
-  assert.equal(readSources(tree, cfg(), NOW + 11000).dcSystem.stale, true)
+  // Change-only sources: a steady reading stays usable past staleSeconds.
+  assert.equal(readSources(tree, cfg(), NOW + 60000).dcSystem.stale, false)
+  assert.equal(readSources(tree, cfg(), NOW + 121000).dcSystem.stale, true)
+  assert.equal(readSources(tree, cfg({ changeOnlyStaleSeconds: 10 }), NOW + 11000).dcSystem.stale, true)
   assert.equal(readSources(tree, cfg({ dcSystemPowerPath: '' }), NOW).dcSystem, undefined)
 })
 
