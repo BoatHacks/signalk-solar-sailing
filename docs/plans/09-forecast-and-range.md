@@ -196,10 +196,11 @@ the server's unit definitions in plan 10, the same way `Wh` was chosen over
 |---------|---------|------|
 | Use solar forecast | on (no effect without a forecast) | 10 |
 | Forecast path | `electrical.energy.prediction` | 10 |
-| Forecast max age | 180 min (the predictor's default cycle is 60 min) | 10 |
-| Surplus assist cap | 300 W | 10 |
-| Deficit reserve / critical reserve | 100 W / 200 W | 10 |
-| Best-hours window | 3 h | 10 |
+| Forecast max age (`forecastMaxAgeMinutes`) | 180 min (the predictor's default cycle is 60 min); confirmed | 10 |
+| Surplus assist cap (`surplusAssistCapW`) | 300 W; confirmed | 10 |
+| Deficit reserve (`deficitReserveW`) | 100 W; confirmed | 10 |
+| Critical reserve (`criticalReserveW`) | 200 W; confirmed | 10 |
+| Best-hours window (`bestHoursWindowH`) | 3 h; confirmed | 10 |
 | Sunset target SoC | 0 = off (SoC-neutral) | 10 |
 | Battery capacity | 14 500 Wh (reference boat; 0 = from `capacity.nominal`, else unknown) | 10 |
 | Minimum SoC (night floor) | 20 % | 10 |
@@ -209,7 +210,8 @@ the server's unit definitions in plan 10, the same way `Wh` was chosen over
 | Fallback speed model (`c`, `m`) | none / ⅓ (speed hidden until learned) | 11 |
 | Reset learned speed model | off | 11 |
 
-All have defaults in the schema (registry: schema criterion).
+All are admin-UI settings with defaults in the schema (registry: schema
+criterion). "Confirmed" marks the defaults Tobi reviewed on 2026-11-15.
 
 ## Registry and packaging
 - `signalk.recommends` gains `@meri-imperiumi/signalk-energy-predictor`
