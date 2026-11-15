@@ -201,14 +201,18 @@ the server's unit definitions in plan 10, the same way `Wh` was chosen over
 | Deficit reserve (`deficitReserveW`) | 100 W; confirmed | 10 |
 | Critical reserve (`criticalReserveW`) | 200 W; confirmed | 10 |
 | Best-hours window (`bestHoursWindowH`) | 3 h; confirmed | 10 |
-| Sunset target SoC | 0 = off (SoC-neutral) | 10 |
-| Battery capacity | 14 500 Wh (reference boat; 0 = from `capacity.nominal`, else unknown) | 10 |
-| Minimum SoC (night floor) | 20 % | 10 |
-| Position max age | 60 min | 10 |
+| Sunset target SoC (`sunsetTargetSocPercent`) | 0 = off (SoC-neutral); changed from 90 %, confirmed | 10 |
+| Battery capacity (`batteryCapacityWh`) | 14 500 Wh (reference boat; 0 = from `capacity.nominal`, else unknown); changed, confirmed | 10 |
+| Minimum SoC, night floor (`minSocPercent`) | 20 % plus forecast night house load; confirmed | 10 |
+| Position max age (`positionMaxAgeMinutes`) | 60 min; confirmed | 10 |
 | Speed through water path | `navigation.speedThroughWater` | 11 |
-| STW correction factor (fouled log) | 1.0 | 11 |
-| Fallback speed model (`c`, `m`) | none / ⅓ (speed hidden until learned) | 11 |
+| STW correction factor (`stwFactor`) | 1.0; confirmed | 11 |
+| Fallback speed model (`c`, `m`) | none / ⅓ (speed hidden until learned); confirmed | 11 |
 | Reset learned speed model | off | 11 |
+
+Fixed tuning constants (not settings), also confirmed on 2026-11-15:
+no day budget in the last 15 min before sunset (plan 10); speed exponent
+`m` clamped to 0.15–0.6, range shown after 30 steady samples (plan 11).
 
 All are admin-UI settings with defaults in the schema (registry: schema
 criterion). "Confirmed" marks the defaults Tobi reviewed on 2026-11-15.
