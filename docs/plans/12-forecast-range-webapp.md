@@ -36,13 +36,14 @@ project file `solar-sailing/mockups/plan12-chart-options.png`).
     Destination line is labelled "through water" when not current-corrected:
     "Dest 14.2 nm, ETA 17:40, after sunset, needs 620 W (+140 W over day
     budget)". With a single-point course only one line is shown.
-  - Distances are not published as paths; they come from the status poll
-    (`snapshot.waypoint.distanceM`, `snapshot.destination.distanceM`). ETAs,
-    required powers and `waypointCurrent` come over the subscription.
+  - The whole panel reads the status poll (`snapshot.speedAtBudget`,
+    `rangeUntilSunsetM`, `waypoint`, `destination`, `speed`): distances are
+    not published as paths, and one source keeps the lines consistent.
   - States: learning (sample count, and the suggested STW factor with its
     spread when `stwFactorSuggested` is set, as promised in plan 11), after
-    sunset, unknown (grey dash, never a 0). **Hidden entirely** when there
-    is no STW and the speed model is not ready (no log: today's page).
+    sunset, unknown (grey dash, never a 0). **Always shown** (Tobi,
+    2026-11-16): with no STW and no learned model it is greyed out with
+    dashes and "No speed log"; course lines then show distances only.
   - Phone: below the budget bar; desktop: beside the energy panel.
 - **Sources tab**: current set (deg true) and drift (kn) with their source
   (`environment.current` or estimated), STW and the speed model state.
@@ -54,9 +55,10 @@ project file `solar-sailing/mockups/plan12-chart-options.png`).
   sunset marker. The 3 h / 6 h / 24 h windows stay history only, unchanged.
   Without a forecast the Today window shows history up to now with the
   sunset marker; without sunset it is hidden.
-- **Data**: the new paths arrive over the existing `plugin.solarsailing.*`
-  subscription; the forecast curve, distances and speed model state come
-  with the existing 5 s `status` poll. No new connection.
+- **Data**: day budget, Today line and forecast bias use the existing
+  `plugin.solarsailing.*` subscription; the range panel, the forecast curve
+  and sunrise (added to the snapshot for the chart) come with the existing
+  5 s `status` poll. No new connection.
 - **Units**: kn and nm via `displayUnits` (distance category `naut-mile`),
   deg for the set, with fallbacks in `units.js` for `m/s` → kn, `m` → nm and
   `rad` → deg if the server lacks them; times in ship time (`time.js`).
