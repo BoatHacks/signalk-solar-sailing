@@ -100,8 +100,35 @@ should still be correctable:
     is not closing on the mark (stopped, or on the wrong tack), which is
     exactly when the skipper asks "can I make it on the sun?".
   - Caveats in the label: distances are along the route over ground,
-    speed is through the water, so current is not in the ETA; the arrival
+    speed is through the water; the next waypoint is corrected for the
+    current (below), the final destination of a route is not. The arrival
     circle is not subtracted (metres, irrelevant at these distances).
+
+### Current: set and drift (Tobi, 2026-11-16)
+At 2.5 kn, 0.5 kn of foul current takes 20 % off the speed over ground and,
+with `P ∝ v³`, adds about 70 % to the power needed to arrive on time, so the
+next waypoint is corrected for it (`lib/current.js`, pure):
+
+- **Source**: `environment.current` (`setTrue`, `drift`; e.g. from
+  signalk-derived-data) while fresh (`changeOnlyStaleSeconds`), else an own
+  estimate: ground velocity (SOG, COG) minus water velocity (STW after
+  `stwFactor`, `navigation.headingTrue`), averaged with a 5 min time
+  constant, used after 60 s of data and dropped after a 2 min gap, STW above
+  0.3 m/s. Leeway ends up in it as cross-track current, which is what it
+  does to the track. Estimated in both modes.
+- **Correction** with the current split along (`u`, > 0 helps) and across
+  (`x`) course-provider's `calcValues.bearingTrue`:
+  speed made good `= √(stw² − x²) + u` (0 when the boat cannot hold the
+  line or is set back: no ETA); speed through the water needed to arrive by
+  sunset `= √(max(0, d/t − u)² + x²)`, and 0 W when the current alone is
+  enough.
+- **Only the next waypoint**, and a single-point destination (the same
+  leg). The final destination of a route stays through the water: a tidal
+  current changes along a longer route. `currentCorrected` on each target
+  says which.
+- Without a bearing, or with no current known, nothing changes.
+- Paths `currentSetTrue` (rad), `currentDrift` (m/s) and `waypointCurrent`
+  (m/s, along the bearing, positive helps).
   - Without course-provider (non-default servers) the course values are
     absent and the waypoint lines are hidden; reading `app.getCourse()` and
     the route resource to sum legs ourselves is possible but not planned.
@@ -152,14 +179,18 @@ optional.
 - [x] Confirm the course paths on the boat (2026-11-15: `calcValues.distance`
       and `calcValues.route.distance` from course-provider 1.5.1)
 - [ ] Confirm the STW path when the DST810 is back
-- [ ] `lib/powerlaw.js` refactor, propeller tests unchanged
-- [ ] `lib/speed.js` + tests (incl. `stwFactor` rescaling and the
+- [x] `lib/powerlaw.js` refactor, propeller tests unchanged
+- [x] `lib/speed.js` + tests (incl. `stwFactor` rescaling and the
       SOG/STW heading-sector suggestion)
-- [ ] `lib/range.js` + tests
-- [ ] Sources, config, engine, persistence in `index.js`
-- [ ] Advisory paths and metadata, resources
-- [ ] SPEC 2.4 (speed model), 5.1, 7, 8 and ARCHITECTURE 2.3, 2.4, 3, 9
+- [x] `lib/range.js` + tests
+- [x] Sources, config, engine, persistence in `index.js`
+- [x] Advisory paths and metadata, resources
+- [x] SPEC 2.4 (speed model), 5.1, 7, 8 and ARCHITECTURE 2.3, 2.4, 3, 9
       updated; CHANGELOG
+- [x] Current correction for the next waypoint (`lib/current.js`) + tests
+- [ ] Before shipping: set a test route on the plotter and check
+      `waypointEta`, `destinationEta` and the required powers against
+      course-provider's distances (no route on the server yet, 2026-11-15)
 - [ ] Spring, DST810 back: capture an STW fixture, check the learned
       `c`, `m` against it, tune the steady-state gate if needed, and
       compare the suggested `stwFactor` before and after cleaning the wheel

@@ -119,6 +119,38 @@ curve: the 2026-10-25 log fits `n ≈ 1.35` over 217–521 rpm (42–138 W). So
 `n` starts at 3, is only fitted once the samples span a wide enough RPM range,
 and is clamped to 1–3.5.
 
+**Speed law** (plan 11). Speed through water is modelled against motor
+power, `v ≈ c · Pᵐ`, so a budget in watts maps straight to a speed without
+going through the propeller model, and boats without RPM get it too. A
+displacement hull at low speed follows roughly `P ∝ v³`, so `m` starts at ⅓,
+is fitted only once the samples cover at least 4 power buckets (10 % wide,
+logarithmic) and a max/min power ratio of 2, and is clamped to 0.15–0.6.
+Samples are taken in drive, in active mode, with STW above 0.3 m/s and power
+and STW steady over 10 s (±5 %, STW at least ±0.1 m/s), at most one every
+5 s, never while `navigation.state` is `sailing`. SOG is never used for
+learning (current would teach a false speed). The model is ready after 30
+samples. Samples are stored raw; the STW correction factor (`stwFactor`) is
+applied at fit time, so changing it rescales `c` without losing data. A
+suggested factor (median over at least 4 course sectors of the per-sector
+median SOG/STW) is shown in the status, never applied automatically.
+
+**Range and ETAs** (plan 11). The range basis is the day budget when known,
+else the live budget. Speed at budget = `c · basisᵐ`; range until sunset =
+speed × time to sunset. For the next waypoint and the final destination
+(course-provider's `calcValues.distance` and `calcValues.route.distance`,
+the latter falling back to the former without a route): ETA = now +
+distance ÷ speed (flagged when after sunset), and the power needed to arrive
+by sunset = `(distance ÷ time left ÷ c)^(1/m)`, unknown when that lies more
+than 50 % outside the learned power range. Distances are over ground along
+the route, the speed is through the water. For the next waypoint (and a
+single-point destination) the ETA and required power allow for the current:
+with `u` the current along the bearing (> 0 helps) and `x` across it, speed
+made good `= √(stw² − x²) + u` and speed needed `= √(max(0, d/t − u)² + x²)`.
+The current is `environment.current` when fresh, else estimated as ground
+velocity minus water velocity (STW and true heading) averaged over about
+5 min. The final destination of a route is not corrected: a tidal current
+changes along a longer route.
+
 ### 2.5 Smoothing
 
 Solar input changes fast under passing clouds. The budget uses an exponential
@@ -192,6 +224,23 @@ The plugin runs at two rates:
   tree (`state.lastValue`) on start; the forecast's own age decides
   freshness (`forecastMaxAgeMinutes`, default 180 min). Forecast slots are
   `[time, time + 1 h)` and are prorated, never aligned to the clock hour.
+- **Speed through water** (optional): `navigation.speedThroughWater`
+  (configurable), for the speed model; `staleSeconds` like any value.
+- **SOG and COG** (optional): `navigation.speedOverGround` and
+  `navigation.courseOverGroundTrue`, only for the suggested STW factor.
+- **Heading** (optional): `navigation.headingTrue`, for the own current
+  estimate. **Current** (optional): `environment.current` (`setTrue`,
+  `drift`), preferred over the own estimate while fresh
+  (`changeOnlyStaleSeconds`). Course bearing:
+  `navigation.course.calcValues.bearingTrue`.
+- **Navigation state** (optional): `navigation.state`; samples are skipped
+  while `sailing`. Kept from a subscription (sent rarely, nulled by the
+  server after 60 s), seeded from the tree on start.
+- **Course** (optional): `navigation.course.calcValues.distance` and
+  `calcValues.route.distance` from course-provider (bundled with the
+  server); stale after `changeOnlyStaleSeconds`. Its own `timeToGo` and
+  `estimatedTimeOfArrival` are not used: they follow the current VMC and are
+  `null` whenever the boat is not closing on the mark.
 
 ## 5. API Specification
 
@@ -220,6 +269,16 @@ All under `plugin.solarsailing.` (self vessel), with `meta.units`:
 | `houseRemaining` | J | Forecast house energy from now until sunset |
 | `sunset` | — | Sunset today (ISO 8601 time, to the minute) |
 | `bestHoursStart` / `bestHoursEnd` | — | Best window to motor today (ISO 8601 time) |
+| `speedAtBudget` | m/s | Expected speed through water at the range basis budget |
+| `rangeUntilSunset` | m | Distance through water at that speed until sunset |
+| `rangeBasis` | — | `dayBudget` / `budget` |
+| `waypointEta` | — | ETA at the next waypoint (ISO 8601 time) |
+| `waypointRequiredPower` | W | Motor power to reach the next waypoint by sunset |
+| `destinationEta` | — | ETA at the final destination (ISO 8601 time) |
+| `destinationRequiredPower` | W | Motor power to reach the final destination by sunset |
+| `currentSetTrue` | rad | Set of the current used for the waypoint |
+| `currentDrift` | m/s | Drift of that current |
+| `waypointCurrent` | m/s | Current along the bearing to the next waypoint (positive helps) |
 
 Unknown values are published as `null`.
 
@@ -293,6 +352,8 @@ squirrel under a sun, at a tiller or with a propeller), 512 px PNG.
 
 - Plugin configuration, via the Signal K plugin config store.
 - The learned propeller model (`k`, `n`), saved so it survives restarts.
+- The learned speed model (`c`, `m`, raw samples and SOG/STW ratios) in
+  `speed.json` next to it, same timing; reset with its own config flag.
 - **History comes from the Signal K History API** (`/signalk/v2/api/history`),
   served by a history provider plugin such as signalk-to-influxdb2 or
   signalk-parquet that records `plugin.solarsailing.*`. The plugin keeps no
@@ -335,6 +396,10 @@ squirrel under a sun, at a tiller or with a propeller), 512 px PNG.
 | Sunset target SoC | 0 = off (day budget SoC-neutral) |
 | Battery capacity | 14 500 Wh (reference boat; 0 = `capacity.nominal`) |
 | Minimum SoC, night floor | 20 % |
+| Speed through water path | `navigation.speedThroughWater` |
+| STW correction factor (`stwFactor`) | 1.0 |
+| Speed model fallback (`c`, `m`) | none / ⅓ (range hidden until learned) |
+| Reset learned speed model | off |
 
 ## 9. MVP Scope
 
@@ -396,7 +461,9 @@ Not scored, but required for the App Store listing:
     follow in plan 12.
   - *Range until sunset* at the current budget (plan 11).
   The plugin works unchanged when no forecast is published.
-- **Range/speed estimate** ("at this budget you make X kn, reach Y by sunset").
+- **Range/speed estimate** ("at this budget you make X kn, reach Y by sunset"):
+  **built in plan 11** (rules in 2.4, inputs in 4, paths in 5.1); the webapp
+  panel follows in plan 12.
 
 ## 10. References
 

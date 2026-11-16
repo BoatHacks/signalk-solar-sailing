@@ -7,16 +7,20 @@ import { resolveConfig, schema } from './lib/config.js'
 import { readSources } from './lib/sources.js'
 import { Engine } from './lib/engine.js'
 import { PropellerModel } from './lib/propeller.js'
+import { SpeedModel } from './lib/speed.js'
 import { loadEnergySeed } from './lib/history.js'
 import { createAdvisoryOutput } from './lib/outputs/advisory.js'
-import { RESOURCE_TYPE, buildStatus, resourceMethods } from './lib/resources.js'
+import { RESOURCE_TYPE, buildStatus, resourceMethods, speedStatus } from './lib/resources.js'
 import { LastValueCache } from './lib/cache.js'
 
 export const PLUGIN_ID = 'signalk-solar-sailing'
 export const ACTIVE_TICK_MS = 1000
+/** How often the learned models are saved. */
 export const PROPELLER_SAVE_MS = 5 * 60 * 1000
 export const SEED_TIMEOUT_MS = 5000
 const PROPELLER_FILE = 'propeller.json'
+const SPEED_FILE = 'speed.json'
+export const NAV_STATE_PATH = 'navigation.state'
 
 /**
  * @param {any} app Signal K server API
@@ -62,14 +66,18 @@ export default function solarSailing (app) {
       for (const w of warnings) error(w)
 
       const propeller = new PropellerModel({ fallbackK: config.propellerK, fallbackN: config.propellerN })
-      const engine = new Engine(config, { propeller })
+      const speed = new SpeedModel({ fallbackC: config.speedC, fallbackM: config.speedM, stwFactor: config.stwFactor })
+      const engine = new Engine(config, { propeller, speed })
       const advisory = createAdvisoryOutput(app, PLUGIN_ID)
       /** @type {any} */
       const s = state = {
         config,
         engine,
         propeller,
+        speed,
         outputs: [advisory],
+        /** @type {unknown} last navigation.state leaf, kept from a subscription */
+        navState: undefined,
         forecastCache: new LastValueCache(config.forecastPath),
         /** @type {ReturnType<typeof setTimeout> | undefined} */
         timer: undefined,
@@ -85,6 +93,12 @@ export default function solarSailing (app) {
 
       const dataDir = guard('data dir', () => (typeof app.getDataDirPath === 'function' ? app.getDataDirPath() : undefined))
       s.propellerFile = dataDir ? join(dataDir, PROPELLER_FILE) : undefined
+      s.speedFile = dataDir ? join(dataDir, SPEED_FILE) : undefined
+      /** Learned models persisted in the data dir; `reset` is the config flag that clears one. */
+      s.models = [
+        { name: 'propeller', file: s.propellerFile, model: propeller, reset: 'resetPropeller' },
+        { name: 'speed', file: s.speedFile, model: speed, reset: 'resetSpeed' }
+      ]
 
       guard('metadata', () => { advisory.registerMeta().catch((err) => error(`metadata: ${err.message}`)) })
 
@@ -97,11 +111,12 @@ export default function solarSailing (app) {
             n: propeller.n,
             samples: propeller.samples.length,
             ready: propeller.ready
-          }))
+          }, speedStatus(speed)))
         })
       })
 
       guard('wake subscription', () => subscribeWake(s))
+      guard('navigation state subscription', () => subscribeNavState(s))
       if (config.useForecast) guard('forecast subscription', () => subscribeForecast(s))
 
       s.saveTimer = setInterval(() => { saveModel(s) }, PROPELLER_SAVE_MS)
@@ -134,25 +149,29 @@ export default function solarSailing (app) {
    * @param {Record<string, unknown>} options
    */
   async function init (s, options) {
-    const { config, propeller, engine } = s
+    const { config, engine } = s
     await saving
-    if (s.propellerFile) {
-      if (config.resetPropeller) {
-        await rm(s.propellerFile, { force: true }).catch((err) => error(`propeller reset: ${err.message}`))
-        if (typeof app.savePluginOptions === 'function') {
-          app.savePluginOptions({ ...options, resetPropeller: false }, (/** @type {any} */ err) => {
-            if (err) error(`savePluginOptions: ${err.message}`)
-          })
-        }
-        debug('Learned propeller model reset')
+    /** @type {Record<string, unknown>} */
+    const cleared = {}
+    for (const m of s.models) {
+      if (!m.file) continue
+      if (config[m.reset]) {
+        await rm(m.file, { force: true }).catch((err) => error(`${m.name} reset: ${err.message}`))
+        cleared[m.reset] = false
+        debug(`Learned ${m.name} model reset`)
       } else {
         try {
-          propeller.load(JSON.parse(await readFile(s.propellerFile, 'utf8')))
-          debug(`Propeller model loaded: ${propeller.samples.length} samples`)
+          m.model.load(JSON.parse(await readFile(m.file, 'utf8')))
+          debug(`${m.name} model loaded: ${m.model.samples.length} samples`)
         } catch (err) {
-          if (/** @type {any} */ (err).code !== 'ENOENT') error(`propeller load: ${/** @type {Error} */ (err).message}`)
+          if (/** @type {any} */ (err).code !== 'ENOENT') error(`${m.name} load: ${/** @type {Error} */ (err).message}`)
         }
       }
+    }
+    if (Object.keys(cleared).length && typeof app.savePluginOptions === 'function') {
+      app.savePluginOptions({ ...options, ...cleared }, (/** @type {any} */ err) => {
+        if (err) error(`savePluginOptions: ${err.message}`)
+      })
     }
     try {
       const now = Date.now()
@@ -175,17 +194,19 @@ export default function solarSailing (app) {
    * @returns {Promise<void>}
    */
   function saveModel (s) {
-    if (!s.propellerFile || s.propeller.samples.length === 0) return saving
-    const file = s.propellerFile
-    const json = JSON.stringify(s.propeller.toJSON())
-    saving = saving.then(async () => {
-      try {
-        await writeFile(`${file}.tmp`, json)
-        await rename(`${file}.tmp`, file)
-      } catch (err) {
-        error(`propeller save: ${/** @type {Error} */ (err).message}`)
-      }
-    })
+    for (const m of s.models || []) {
+      if (!m.file || m.model.samples.length === 0) continue
+      const file = m.file
+      const json = JSON.stringify(m.model.toJSON())
+      saving = saving.then(async () => {
+        try {
+          await writeFile(`${file}.tmp`, json)
+          await rename(`${file}.tmp`, file)
+        } catch (err) {
+          error(`${m.name} save: ${/** @type {Error} */ (err).message}`)
+        }
+      })
+    }
     return saving
   }
 
@@ -195,7 +216,7 @@ export default function solarSailing (app) {
    */
   function readTree (config) {
     const roots = new Set(['electrical', 'environment', 'navigation'])
-    for (const p of [config.propulsionPath, config.solarPath, config.motorPowerPath, config.batteryPath, config.dcSystemPowerPath]) {
+    for (const p of [config.propulsionPath, config.solarPath, config.motorPowerPath, config.batteryPath, config.dcSystemPowerPath, config.speedThroughWaterPath]) {
       if (p) roots.add(p.split('.')[0])
     }
     /** @type {Record<string, unknown>} */
@@ -217,7 +238,7 @@ export default function solarSailing (app) {
     const now = Date.now()
     s.lastTickAt = now
     try {
-      const readings = guard('read sources', () => readSources(readTree(s.config), s.config, now, s.forecastCache.tree()))
+      const readings = guard('read sources', () => readSources(readTree(s.config), s.config, now, s.forecastCache.tree(), s.navState))
       const snapshot = readings && guard('engine', () => s.engine.update(readings, now))
       if (snapshot) {
         for (const o of s.outputs) guard(`${o.name} output`, () => o.update(snapshot, now))
@@ -285,6 +306,32 @@ export default function solarSailing (app) {
       (/** @type {any} */ err) => error(`forecast subscription: ${err}`),
       (/** @type {any} */ delta) => {
         if (s.running) guard('forecast delta', () => cache.applyDelta(delta, Date.now()))
+      }
+    )
+  }
+
+  /**
+   * `navigation.state` changes rarely and the server nulls it 60 s after the
+   * last update, so keep the last value (plan 9, ground rules).
+   * @param {any} s
+   */
+  function subscribeNavState (s) {
+    const leaf = app.getSelfPath(NAV_STATE_PATH)
+    if (leaf && typeof leaf === 'object') {
+      s.navState = leaf.value !== null && leaf.value !== undefined ? leaf.value : (leaf.state && leaf.state.lastValue)
+    }
+    if (!app.subscriptionmanager || typeof app.subscriptionmanager.subscribe !== 'function') return
+    app.subscriptionmanager.subscribe(
+      { context: 'vessels.self', subscribe: [{ path: NAV_STATE_PATH, policy: 'instant' }] },
+      s.unsubscribes,
+      (/** @type {any} */ err) => error(`navigation state subscription: ${err}`),
+      (/** @type {any} */ delta) => {
+        if (!s.running) return
+        for (const u of (delta && Array.isArray(delta.updates) ? delta.updates : [])) {
+          for (const pv of (Array.isArray(u.values) ? u.values : [])) {
+            if (pv && pv.path === NAV_STATE_PATH && pv.value !== null && pv.value !== undefined) s.navState = pv.value
+          }
+        }
       }
     )
   }

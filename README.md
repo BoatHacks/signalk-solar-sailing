@@ -26,6 +26,9 @@ the motor.
   for a solar forecast (day budget, forecast bias, best hours), and a GPS
   position for the sunset time. Without them those values are simply
   unknown; everything else works the same.
+- Optional: a speed log (`navigation.speedThroughWater`) for the speed and
+  range estimate, and an active course (course-provider, bundled with the
+  server) for waypoint and destination ETAs.
 
 ## How it works
 
@@ -57,6 +60,22 @@ With a solar forecast from signalk-energy-predictor it also computes:
 - **Best hours** to motor today: the 3 h window before sunset with the most
   forecast surplus.
 - **Sunset** from the boat's position (or from the forecast without one).
+
+With a speed log it learns how fast the boat goes for a given motor power
+(`v = c · Pᵐ`, from steady motoring, never while sailing) and computes:
+
+- **Speed at budget** and **range until sunset** at the day budget (or the
+  live budget without a forecast), through the water.
+- With an active course: **ETA** at the next waypoint and at the final
+  destination, and the **motor power needed** to arrive by sunset. The next
+  waypoint allows for the current (set and drift from `environment.current`,
+  or estimated from GPS track, speed log and heading); the final destination
+  of a route does not, because the current changes along the way.
+
+The range stays hidden until the model has 30 steady samples, unless you set
+a fallback `c`. A fouled paddlewheel reads low: set the **STW correction
+factor**; the status resource suggests one from SOG/STW over several
+headings.
 
 ## Webapp
 
@@ -111,6 +130,13 @@ All on the self vessel, in SI units with `meta.units`:
 | `plugin.solarsailing.houseRemaining` | J (forecast, until sunset) |
 | `plugin.solarsailing.sunset` | ISO 8601 time |
 | `plugin.solarsailing.bestHoursStart` / `bestHoursEnd` | ISO 8601 time |
+| `plugin.solarsailing.speedAtBudget` | m/s |
+| `plugin.solarsailing.rangeUntilSunset` | m |
+| `plugin.solarsailing.rangeBasis` | `dayBudget` / `budget` |
+| `plugin.solarsailing.waypointEta` / `destinationEta` | ISO 8601 time |
+| `plugin.solarsailing.waypointRequiredPower` / `destinationRequiredPower` | W |
+| `plugin.solarsailing.currentSetTrue` | rad |
+| `plugin.solarsailing.currentDrift` / `waypointCurrent` | m/s |
 
 Unknown values are published as `null`.
 
@@ -137,6 +163,8 @@ Everything has a default; the settings you are most likely to change:
   bank's `capacity.nominal`). The capacity only matters once a target is set.
 - **Use solar forecast**, its path, and the surplus assist cap and deficit /
   critical reserves.
+- **Speed through water path**, **STW correction factor** (default 1.0) and
+  **reset learned speed model** (for example after cleaning the hull).
 
 ## Development
 

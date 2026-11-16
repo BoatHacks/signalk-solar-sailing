@@ -247,3 +247,59 @@ test('config: empty or invalid forecast path falls back to the default', () => {
   assert.equal(DEFAULTS.sunsetTargetSocPercent, 0)
   assert.equal(DEFAULTS.batteryCapacityWh, 14500)
 })
+
+test('speed model persisted next to the propeller and reset by its own flag', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ss-'))
+  const file = join(dir, 'speed.json')
+  const c = 2.5 / Math.pow(500, 1 / 3)
+  const samples = Array.from({ length: 40 }, (_, i) => [100 + i * 40, c * Math.pow(100 + i * 40, 1 / 3), i])
+  await writeFile(file, JSON.stringify({ samples, stwRatios: [[1.1]] }))
+  const saved = []
+  const app = fakeApp({ getDataDirPath: () => dir, savePluginOptions: (o, cb) => { saved.push(o); cb(null) } })
+  const p = createPlugin(app)
+  p.start({ stwFactor: 1.1 })
+  await waitFor(() => app.messages.length > 1)
+  let status = await statusOf(app)
+  assert.equal(status.speed.ready, true)
+  assert.equal(status.speed.samples, 40)
+  assert.equal(status.speed.stwFactor, 1.1)
+  assert.ok(Math.abs(status.speed.c / c - 1.1) < 1e-6, 'factor applied at fit time')
+  assert.equal(status.speed.stwFactorSuggested, null)
+  await p.stop()
+  const json = JSON.parse(await readFile(file, 'utf8'))
+  assert.deepEqual(json.samples, samples, 'samples stay raw')
+  assert.deepEqual(json.stwRatios[0], [1.1])
+
+  const before = app.messages.length
+  p.start({ resetSpeed: true })
+  await waitFor(() => app.messages.length > before + 1)
+  status = await statusOf(app)
+  assert.equal(status.speed.samples, 0)
+  assert.equal(saved[0].resetSpeed, false)
+  assert.equal(saved[0].resetPropeller, undefined, 'only the flag that was set')
+  await assert.rejects(readFile(file, 'utf8'))
+  p.stop()
+})
+
+test('navigation state: seeded from the tree, kept from the subscription', async () => {
+  mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: Date.parse('2026-11-15T12:00:00Z') })
+  try {
+    const app = fakeApp()
+    app.tree['navigation.state'] = { value: null, state: { lastValue: 'sailing' } }
+    const p = createPlugin(app)
+    p.start({})
+    await flush()
+    await flush()
+    assert.equal((await statusOf(app)).sources.navState, 'sailing')
+    const sub = app.subscriptions.find((x) => x.cmd.subscribe[0].path === 'navigation.state')
+    assert.ok(sub)
+    sub.cb({ updates: [{ values: [{ path: 'navigation.state', value: 'motoring' }] }] })
+    sub.cb({ updates: [{ values: [{ path: 'navigation.state', value: null }] }] })
+    mock.timers.tick(10000)
+    assert.equal((await statusOf(app)).sources.navState, 'motoring', 'the server timeout (null) is ignored')
+    p.stop()
+    assert.deepEqual(app.errors, [])
+  } finally {
+    mock.timers.reset()
+  }
+})

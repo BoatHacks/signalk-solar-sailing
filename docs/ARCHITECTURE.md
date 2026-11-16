@@ -126,6 +126,16 @@ Stateful but I/O-free. Input: readings and `now`. Output: a `Snapshot`
    (`lib/sun.js`), else from the forecast; energy until sunset, sunset target
    SoC, day budget and best hours from `lib/forecast.js` (SPEC 2.2). The day
    budget is advice; the match state stays against the live budget.
+9. Speed and range (plan 11): the speed model observes in active mode only
+   (skipped while `navigation.state` is `sailing`), and the SOG/STW ratios
+   for the suggested STW factor are collected while in drive. In both modes
+   `lib/range.js` turns the model, the day budget (else the live budget),
+   sunset and course-provider's distances into speed at budget, range until
+   sunset, and ETA and required power for the next waypoint and the final
+   destination. The current for the next waypoint is `environment.current`
+   when fresh, else `CurrentEstimator` (`lib/current.js`: ground minus water
+   velocity, 5 min exponential average), split along and across the
+   course bearing.
 
 `lib/sun.js` is the NOAA sunrise equation (−0.833° horizon, about a minute
 of error), about 40 lines instead of a dependency. `lib/forecast.js` is pure:
@@ -136,9 +146,17 @@ From the draft `matcher.js` we keep `Smoother`, `batteryBias`, `clamp` and
 output (2.7), and `MODES` is dropped, because the MVP has a single advisory
 output.
 
-### 2.4 Propeller model (`lib/propeller.js`)
+### 2.4 Propeller and speed models (`lib/propeller.js`, `lib/speed.js`, `lib/powerlaw.js`)
 
-Learns `k` and `n` in `P = k · rpmⁿ` (SPEC 2.4).
+Both are `PowerLawLearner`s (`lib/powerlaw.js`: steady window, bucketed ring
+buffer, Theil–Sen fit, exponent guard and clamp, all set by options), each
+with its own samples and file. The propeller model learns `k` and `n` in
+`P = k · rpmⁿ` (SPEC 2.4); the speed model learns `c` and `m` in
+`v = c · Pᵐ` with 10 % logarithmic power buckets, a power ratio of 2 for
+`m`, `m` clamped to 0.15–0.6, STW tolerance at least ±0.1 m/s, STW factor
+applied at fit time, and SOG/STW ratios in 8 COG sectors for the suggested
+factor. It persists to `<dataDir>/speed.json` with the same timing and has
+its own reset flag. The rest of this section describes the propeller model.
 
 - **Sample** only in steady state: in drive, RPM above a floor (200 rpm), and RPM
   and power each within ±5 % of their mean over the last 10 s. At most one
@@ -280,7 +298,15 @@ JSDoc typedefs in `lib/types.js`, checked by `tsc --noEmit`.
 /** @typedef {{ solar: SolarReading[], solarFallback: boolean,
  *    motor?: MotorReading, battery?: BatteryReading, dcSystem?: PowerReading,
  *    timezoneOffsetMin?: number, position?: PositionReading,
- *    forecast?: ForecastReading }} Readings */
+ *    forecast?: ForecastReading, stw?: SpeedReading, ground?: GroundReading,
+ *    navState?: string, course?: CourseReading }} Readings */
+/** @typedef {{ mps: number, time?: number, stale: boolean }} SpeedReading */
+/** @typedef {{ sog: number, cog: number, time?: number, stale: boolean }} GroundReading */
+/** @typedef {{ nextM?: number, routeM?: number, bearingTrue?: number, time?: number, stale: boolean }} CourseReading */
+/** @typedef {{ setTrue: number, drift: number, source: 'environment'|'estimated' }} CurrentEstimate */
+/** @typedef {{ distanceM: number, eta?: number, afterSunset?: boolean,
+ *    requiredPowerW?: number, currentCorrected?: boolean,
+ *    currentAlongMps?: number, currentAcrossMps?: number }} TargetEstimate */
 /** @typedef {'matched'|'over'|'under'|'unknown'} MatchState */
 /** @typedef {{ t: number, mode: 'active'|'idle', inDrive: boolean,
  *    solarW?: number, houseW?: number,
@@ -291,7 +317,10 @@ JSDoc typedefs in `lib/types.js`, checked by `tsc --noEmit`.
  *    solarEnergyJ: number, motorEnergyJ: number, forecastBiasW: number,
  *    sunset?: number, dayBudgetW?: number, dayBudgetBasis?: 'target'|'neutral',
  *    sunsetTargetSoc?: number, solarRemainingJ?: number, houseRemainingJ?: number,
- *    bestHours?: { start: number, end: number }, forecastStatus?: string }} Snapshot */
+ *    bestHours?: { start: number, end: number }, forecastStatus?: string,
+ *    stw?: number, speedAtBudget?: number, rangeUntilSunsetM?: number,
+ *    rangeBasis?: 'dayBudget'|'budget', waypoint?: TargetEstimate,
+ *    destination?: TargetEstimate, current?: CurrentEstimate }} Snapshot */
 ```
 
 Internally RPM is rpm (what the propeller law and logs use); the advisory
@@ -353,7 +382,11 @@ signalk-solar-sailing/
 │   ├── sources.js           discovery, readings, staleness
 │   ├── matcher.js           smoothing, SoC bias, verdict (draft, trimmed)
 │   ├── engine.js            snapshot per tick
-│   ├── propeller.js         k learning + persistence
+│   ├── powerlaw.js          shared power-law learner (steady window, Theil–Sen)
+│   ├── propeller.js         k, n learning (P = k · rpmⁿ)
+│   ├── speed.js             c, m learning (v = c · Pᵐ), suggested STW factor
+│   ├── range.js             speed at budget, range, waypoint/destination ETA
+│   ├── current.js           set and drift estimate, along/across-track maths
 │   ├── energy.js            energy today (draft, History class removed)
 │   ├── history.js           History API seed for today's energy
 │   ├── sun.js               sunrise / sunset (NOAA)
@@ -432,5 +465,6 @@ boat's server meets it (2026-11-02).
 - **Solar forecast** (SPEC 9.2): built in plan 10 (2.2, 2.3). The webapp
   view of it (day budget, best hours, forecast curve) is plan 12.
 - **Motor control** via the `put` output (2.7) once a writable limit exists.
-- **Range estimate**: needs speed through water; the engine snapshot already has
-  budget and target RPM to fit speed against.
+- **Range estimate**: built in plan 11 (2.3, 2.4); the webapp panel is
+  plan 12. Summing route legs ourselves (`app.getCourse()` and the route
+  resource) for servers without course-provider is possible but not planned.

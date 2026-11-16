@@ -120,3 +120,34 @@ test('forecast paths: null when unknown, ISO times to the minute', () => {
   assert.equal(v.bestHoursStart, '2026-11-15T10:15:00.000Z')
   assert.equal(v.bestHoursEnd, '2026-11-15T13:15:00.000Z')
 })
+
+test('range paths: null when unknown, SI units, ISO ETAs', () => {
+  let v = snapshotValues(/** @type {any} */ (snap()))
+  for (const k of ['speedAtBudget', 'rangeUntilSunset', 'rangeBasis', 'waypointEta', 'waypointRequiredPower', 'destinationEta', 'destinationRequiredPower']) {
+    assert.equal(v[k], null, k)
+  }
+  v = snapshotValues(/** @type {any} */ (snap({
+    speedAtBudget: 2.4567,
+    rangeUntilSunsetM: 35123.4,
+    rangeBasis: 'dayBudget',
+    waypoint: { distanceM: 9000, eta: Date.parse('2026-11-15T13:02:29Z'), afterSunset: false, requiredPowerW: 87.66 },
+    destination: { distanceM: 60000, eta: Date.parse('2026-11-15T19:40:00Z'), afterSunset: true }
+  })))
+  assert.equal(v.speedAtBudget, 2.46)
+  assert.equal(v.rangeUntilSunset, 35123)
+  assert.equal(v.rangeBasis, 'dayBudget')
+  assert.equal(v.waypointEta, '2026-11-15T13:02:00.000Z')
+  assert.equal(v.waypointRequiredPower, 87.7)
+  assert.equal(v.destinationEta, '2026-11-15T19:40:00.000Z')
+  assert.equal(v.destinationRequiredPower, null)
+})
+
+test('current paths: set, drift and the waypoint along-track part', () => {
+  let v = snapshotValues(/** @type {any} */ (snap()))
+  for (const k of ['currentSetTrue', 'currentDrift', 'waypointCurrent']) assert.equal(v[k], null, k)
+  v = snapshotValues(/** @type {any} */ (snap({
+    current: { setTrue: 3.14159, drift: 0.257, source: 'estimated' },
+    waypoint: { distanceM: 9000, currentCorrected: true, currentAlongMps: -0.254, currentAcrossMps: 0.01 }
+  })))
+  assert.deepEqual([v.currentSetTrue, v.currentDrift, v.waypointCurrent], [3.142, 0.26, -0.25])
+})
