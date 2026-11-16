@@ -11,45 +11,76 @@ Shared design: [09](09-forecast-and-range.md).
 - ARCHITECTURE 2.9
 
 ## Approach
+Decisions with Tobi, 2026-11-16 (mockup of the chart options:
+project file `solar-sailing/mockups/plan12-chart-options.png`).
+
 - **Day budget in the match panel**: a second, smaller number under the live
   budget ("day 410 W"), and a tick mark on `<ss-budget-bar>` at the day
   budget. Hidden when `dayBudget` is `null`.
-- **Forecast bias** shown in the house/budget breakdown as its own line
-  ("forecast: surplus +120 W"), so the skipper can see why the budget moved.
-- **`<ss-range>`** (new element): speed at budget in kn, range until sunset
-  in nm, sunset time, and two course lines when a course is active: next
-  waypoint and final destination ("WP 3.1 nm, 13:05" / "Dest 14.2 nm,
-  ETA 17:40, after sunset, needs 620 W"). With a single-point course only
-  one line is shown. States: learning (sample count), no log, after sunset,
-  unknown (grey dash, never a 0). Phone: below the budget bar; desktop:
-  beside the energy panel.
-- **Chart**: the forecast curve (average W per hour from `status.forecast`)
-  as a dashed line to the right of "now", the best-hours window as a shaded
-  band, and a sunset marker. The SVG gains a "future" segment; the 3 h / 6 h
-  windows show the next 3 h / 6 h of forecast, 24 h shows until sunset.
+- **"Today" line** under the day budget (Tobi, 2026-11-16): best hours and
+  sunset, e.g. "best 11:00–14:00 · sunset 16:30", shown whenever the
+  forecast or sunset is known. It comes from plan 10 alone, so it shows on
+  boats without a speed log (the boat this winter); it does not depend on
+  `<ss-range>`.
+- **Forecast bias** shown in the house/budget breakdown as its own line with
+  the predictor status ("forecast: surplus +120 W"), so the skipper can see
+  why the budget moved.
+- **`<ss-range>`** (new element), speed and course only:
+  - speed at budget in kn and range until sunset in nm ("through water"),
+    with the basis it uses (`rangeBasis`: "at day budget" / "at live
+    budget");
+  - with an active course, two lines: next waypoint and final destination.
+    Waypoint line carries the current along the bearing (Tobi, 2026-11-16):
+    "WP 3.1 nm, 13:05, current −0.4 kn" (`waypointCurrent`, minus = foul,
+    omitted when unknown or the target is not `currentCorrected`).
+    Destination line is labelled "through water" when not current-corrected:
+    "Dest 14.2 nm, ETA 17:40, after sunset, needs 620 W (+140 W over day
+    budget)". With a single-point course only one line is shown.
+  - Distances are not published as paths; they come from the status poll
+    (`snapshot.waypoint.distanceM`, `snapshot.destination.distanceM`). ETAs,
+    required powers and `waypointCurrent` come over the subscription.
+  - States: learning (sample count, and the suggested STW factor with its
+    spread when `stwFactorSuggested` is set, as promised in plan 11), after
+    sunset, unknown (grey dash, never a 0). **Hidden entirely** when there
+    is no STW and the speed model is not ready (no log: today's page).
+  - Phone: below the budget bar; desktop: beside the energy panel.
+- **Sources tab**: current set (deg true) and drift (kn) with their source
+  (`environment.current` or estimated), STW and the speed model state.
+- **Chart: new "Today" window** (Tobi, 2026-11-16): a fourth toggle next to
+  3 h / 6 h / 24 h, sunrise to sunset (falling back to 06:00 to sunset + 1 h
+  when sunrise is unknown). Measured solar, budget and motor from the
+  History API left of "now"; the forecast curve (average W per slot from
+  `status.forecast`) dashed to the right; best hours as a shaded band; a
+  sunset marker. The 3 h / 6 h / 24 h windows stay history only, unchanged.
+  Without a forecast the Today window shows history up to now with the
+  sunset marker; without sunset it is hidden.
 - **Data**: the new paths arrive over the existing `plugin.solarsailing.*`
-  subscription; the forecast curve comes with the existing 5 s `status`
-  poll. No new connection.
-- **Units**: kn and nm via `displayUnits`, with an ISO-prefix fallback in
-  `units.js` for `m/s` → kn and `m` → nm if the server lacks them; times in
-  ship time (`time.js`).
+  subscription; the forecast curve, distances and speed model state come
+  with the existing 5 s `status` poll. No new connection.
+- **Units**: kn and nm via `displayUnits` (distance category `naut-mile`),
+  deg for the set, with fallbacks in `units.js` for `m/s` → kn, `m` → nm and
+  `rad` → deg if the server lacks them; times in ship time (`time.js`).
 
 ## Test Strategy
-- `units.js`: m/s → kn, m → nm, fallback when `displayUnits` is missing.
+- `units.js`: m/s → kn, m → nm, rad → deg, fallback when `displayUnits` is missing.
 - `state.js` / view tests: every new element hidden with no data; learning
   and after-sunset states; `null` renders a dash.
-- Chart path builder: future segment, band and marker positions for a fixed
-  `now`; no future segment without forecast.
+- Chart path builder: Today window bounds (sunrise to sunset, fallback);
+  future segment, band and marker positions for a fixed `now`; no future
+  segment without forecast; 3/6/24 h output unchanged.
+- `<ss-range>`: hidden without STW and model; waypoint current sign and
+  omission; destination "through water" label; basis label.
 - `npm run lint` (ES2017) and screenshots in day, night, phone, desktop and
   offline, with and without forecast data (`scripts/screenshots.mjs` gains a
   forecast fixture); read them before committing.
 
 ## Implementation Steps
 - [ ] Units and state keys for the new paths
-- [ ] Day budget in `<ss-match>` and `<ss-budget-bar>`
+- [ ] Day budget and "Today" line in `<ss-match>`, tick in `<ss-budget-bar>`
 - [ ] Forecast bias line in the breakdown
-- [ ] `<ss-range>`
-- [ ] Chart: forecast curve, best hours, sunset
+- [ ] `<ss-range>` (basis, waypoint current, learning hint with STW factor)
+- [ ] Sources tab: current, STW, speed model
+- [ ] Chart: "Today" window with forecast curve, best hours, sunset
 - [ ] Screenshots retaken; `signalk.screenshots` still two files; CHANGELOG
 
 ## Files to Create/Modify
