@@ -230,7 +230,7 @@ test('course: next point and route distance; null route distance means no route'
   // course-provider's own ETA is null whenever VMC <= 0; it is not read.
   setIn(tree, 'navigation.course.calcValues.timeToGo', { value: null, timestamp: new Date(NOW).toISOString() })
   setIn(tree, 'navigation.course.calcValues.estimatedTimeOfArrival', { value: null, timestamp: new Date(NOW).toISOString() })
-  assert.deepEqual(readSources(tree, cfg(), NOW).course, { nextM: 9000, routeM: 36000, time: NOW, stale: false })
+  assert.deepEqual(readSources(tree, cfg(), NOW).course, { nextM: 9000, routeM: 36000, bearingTrue: undefined, time: NOW, stale: false })
   setIn(tree, 'navigation.course.calcValues.route.distance', { value: null, timestamp: new Date(NOW).toISOString() })
   assert.equal(readSources(tree, cfg(), NOW).course?.routeM, undefined)
   assert.equal(readSources(tree, cfg(), NOW + 121000).course?.stale, true)
@@ -244,4 +244,16 @@ test('navigation state from the kept leaf or a bare string', () => {
   assert.equal(readSources({}, cfg(), NOW, undefined, { value: null }).navState, undefined)
   const r = readSources({}, cfg(), NOW)
   assert.deepEqual([r.stw, r.ground, r.navState, r.course], [undefined, undefined, undefined, undefined])
+})
+
+test('heading, course bearing and environment.current (object or leaves)', () => {
+  const tree = treeOf({ 'navigation.headingTrue': 1.2, 'navigation.course.calcValues.distance': 9000, 'navigation.course.calcValues.bearingTrue': 3 }, NOW)
+  setIn(tree, 'environment.current', { value: { setTrue: 0.5, drift: 0.3 }, timestamp: new Date(NOW).toISOString() })
+  const r = readSources(tree, cfg(), NOW)
+  assert.deepEqual(r.heading, { rad: 1.2, time: NOW, stale: false })
+  assert.equal(r.course?.bearingTrue, 3)
+  assert.deepEqual(r.current, { setTrue: 0.5, drift: 0.3, time: NOW, stale: false })
+  const leaves = treeOf({ 'environment.current.setTrue': 0.5, 'environment.current.drift': 0.3 }, NOW)
+  assert.deepEqual(readSources(leaves, cfg(), NOW).current, { setTrue: 0.5, drift: 0.3, time: NOW, stale: false })
+  assert.equal(readSources(treeOf({ 'environment.current.setTrue': 0.5 }, NOW), cfg(), NOW).current, undefined)
 })

@@ -134,3 +134,25 @@ test('Curtis replay (no STW): range fields stay unknown, no samples', () => {
   }, { 'electrical.solar.278.panelPower': 150 })
   assert.equal(e.speed.samples.length, 0)
 })
+
+test('current: published environment.current wins, else the own estimate', () => {
+  const e = new Engine(cfg({ speedC: C }))
+  let t = T0
+  const course = { nextM: 40000, bearingTrue: Math.PI, stale: false }
+  // Heading south at 2 m/s through the water, a 0.5 m/s current setting north.
+  /** @type {any} */
+  let s
+  for (let i = 0; i < 90; i++, t += 1000) {
+    const r = readings(t, { stw: 2, sog: 1.5, cog: Math.PI, course: { ...course, time: t } })
+    r.heading = { rad: Math.PI, time: t, stale: false }
+    s = e.update(r, t)
+  }
+  assert.equal(s.current.source, 'estimated')
+  assert.ok(Math.abs(s.current.drift - 0.5) < 1e-6)
+  assert.ok(Math.abs(s.waypoint.currentAlongMps + 0.5) < 1e-6)
+  const r = readings(t, { stw: 2, sog: 1.5, cog: Math.PI, course: { ...course, time: t } })
+  r.current = { setTrue: Math.PI, drift: 0.2, time: t, stale: false }
+  s = e.update(r, t)
+  assert.equal(s.current.source, 'environment')
+  assert.ok(Math.abs(s.waypoint.currentAlongMps - 0.2) < 1e-9)
+})

@@ -31,6 +31,9 @@ All notable changes to this project are documented here. The format follows
     `rangeBasis`, and, with an active course, `waypointEta`,
     `waypointRequiredPower`, `destinationEta`, `destinationRequiredPower`
     (distances from course-provider).
+  - The next waypoint's ETA and required power allow for the current, from
+    `environment.current` or estimated from SOG/COG, STW and heading; new
+    paths `currentSetTrue`, `currentDrift`, `waypointCurrent`.
 
 ## [0.1.2] - 2026-11-15
 

@@ -141,3 +141,13 @@ test('range paths: null when unknown, SI units, ISO ETAs', () => {
   assert.equal(v.destinationEta, '2026-11-15T19:40:00.000Z')
   assert.equal(v.destinationRequiredPower, null)
 })
+
+test('current paths: set, drift and the waypoint along-track part', () => {
+  let v = snapshotValues(/** @type {any} */ (snap()))
+  for (const k of ['currentSetTrue', 'currentDrift', 'waypointCurrent']) assert.equal(v[k], null, k)
+  v = snapshotValues(/** @type {any} */ (snap({
+    current: { setTrue: 3.14159, drift: 0.257, source: 'estimated' },
+    waypoint: { distanceM: 9000, currentCorrected: true, currentAlongMps: -0.254, currentAcrossMps: 0.01 }
+  })))
+  assert.deepEqual([v.currentSetTrue, v.currentDrift, v.waypointCurrent], [3.142, 0.26, -0.25])
+})

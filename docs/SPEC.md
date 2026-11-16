@@ -142,7 +142,14 @@ the latter falling back to the former without a route): ETA = now +
 distance ÷ speed (flagged when after sunset), and the power needed to arrive
 by sunset = `(distance ÷ time left ÷ c)^(1/m)`, unknown when that lies more
 than 50 % outside the learned power range. Distances are over ground along
-the route, the speed is through the water: current is not in the ETA.
+the route, the speed is through the water. For the next waypoint (and a
+single-point destination) the ETA and required power allow for the current:
+with `u` the current along the bearing (> 0 helps) and `x` across it, speed
+made good `= √(stw² − x²) + u` and speed needed `= √(max(0, d/t − u)² + x²)`.
+The current is `environment.current` when fresh, else estimated as ground
+velocity minus water velocity (STW and true heading) averaged over about
+5 min. The final destination of a route is not corrected: a tidal current
+changes along a longer route.
 
 ### 2.5 Smoothing
 
@@ -221,6 +228,11 @@ The plugin runs at two rates:
   (configurable), for the speed model; `staleSeconds` like any value.
 - **SOG and COG** (optional): `navigation.speedOverGround` and
   `navigation.courseOverGroundTrue`, only for the suggested STW factor.
+- **Heading** (optional): `navigation.headingTrue`, for the own current
+  estimate. **Current** (optional): `environment.current` (`setTrue`,
+  `drift`), preferred over the own estimate while fresh
+  (`changeOnlyStaleSeconds`). Course bearing:
+  `navigation.course.calcValues.bearingTrue`.
 - **Navigation state** (optional): `navigation.state`; samples are skipped
   while `sailing`. Kept from a subscription (sent rarely, nulled by the
   server after 60 s), seeded from the tree on start.
@@ -264,6 +276,9 @@ All under `plugin.solarsailing.` (self vessel), with `meta.units`:
 | `waypointRequiredPower` | W | Motor power to reach the next waypoint by sunset |
 | `destinationEta` | — | ETA at the final destination (ISO 8601 time) |
 | `destinationRequiredPower` | W | Motor power to reach the final destination by sunset |
+| `currentSetTrue` | rad | Set of the current used for the waypoint |
+| `currentDrift` | m/s | Drift of that current |
+| `waypointCurrent` | m/s | Current along the bearing to the next waypoint (positive helps) |
 
 Unknown values are published as `null`.
 

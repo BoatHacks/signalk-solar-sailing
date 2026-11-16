@@ -132,7 +132,10 @@ Stateful but I/O-free. Input: readings and `now`. Output: a `Snapshot`
    `lib/range.js` turns the model, the day budget (else the live budget),
    sunset and course-provider's distances into speed at budget, range until
    sunset, and ETA and required power for the next waypoint and the final
-   destination.
+   destination. The current for the next waypoint is `environment.current`
+   when fresh, else `CurrentEstimator` (`lib/current.js`: ground minus water
+   velocity, 5 min exponential average), split along and across the
+   course bearing.
 
 `lib/sun.js` is the NOAA sunrise equation (−0.833° horizon, about a minute
 of error), about 40 lines instead of a dependency. `lib/forecast.js` is pure:
@@ -299,9 +302,11 @@ JSDoc typedefs in `lib/types.js`, checked by `tsc --noEmit`.
  *    navState?: string, course?: CourseReading }} Readings */
 /** @typedef {{ mps: number, time?: number, stale: boolean }} SpeedReading */
 /** @typedef {{ sog: number, cog: number, time?: number, stale: boolean }} GroundReading */
-/** @typedef {{ nextM?: number, routeM?: number, time?: number, stale: boolean }} CourseReading */
+/** @typedef {{ nextM?: number, routeM?: number, bearingTrue?: number, time?: number, stale: boolean }} CourseReading */
+/** @typedef {{ setTrue: number, drift: number, source: 'environment'|'estimated' }} CurrentEstimate */
 /** @typedef {{ distanceM: number, eta?: number, afterSunset?: boolean,
- *    requiredPowerW?: number }} TargetEstimate */
+ *    requiredPowerW?: number, currentCorrected?: boolean,
+ *    currentAlongMps?: number, currentAcrossMps?: number }} TargetEstimate */
 /** @typedef {'matched'|'over'|'under'|'unknown'} MatchState */
 /** @typedef {{ t: number, mode: 'active'|'idle', inDrive: boolean,
  *    solarW?: number, houseW?: number,
@@ -315,7 +320,7 @@ JSDoc typedefs in `lib/types.js`, checked by `tsc --noEmit`.
  *    bestHours?: { start: number, end: number }, forecastStatus?: string,
  *    stw?: number, speedAtBudget?: number, rangeUntilSunsetM?: number,
  *    rangeBasis?: 'dayBudget'|'budget', waypoint?: TargetEstimate,
- *    destination?: TargetEstimate }} Snapshot */
+ *    destination?: TargetEstimate, current?: CurrentEstimate }} Snapshot */
 ```
 
 Internally RPM is rpm (what the propeller law and logs use); the advisory
@@ -381,6 +386,7 @@ signalk-solar-sailing/
 │   ├── propeller.js         k, n learning (P = k · rpmⁿ)
 │   ├── speed.js             c, m learning (v = c · Pᵐ), suggested STW factor
 │   ├── range.js             speed at budget, range, waypoint/destination ETA
+│   ├── current.js           set and drift estimate, along/across-track maths
 │   ├── energy.js            energy today (draft, History class removed)
 │   ├── history.js           History API seed for today's energy
 │   ├── sun.js               sunrise / sunset (NOAA)

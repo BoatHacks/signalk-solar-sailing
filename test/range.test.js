@@ -100,3 +100,35 @@ test('no course or a stale one: no waypoint, no destination', () => {
   assert.equal(targetEstimate(-1, P, 2.5, SUNSET, NOW), undefined)
   assert.equal(targetEstimate(NaN, P, 2.5, SUNSET, NOW), undefined)
 })
+
+test('current: the next waypoint is corrected, a route destination is not', () => {
+  const kn = 1852 / 3600
+  const foul = { setTrue: 0, drift: 0.5 * kn, source: /** @type {const} */ ('environment') }
+  // Heading south (bearing 180°) into a north-setting current.
+  const c = course({ bearingTrue: Math.PI })
+  const plain = rangeEstimate({ params: P, budgetW: 500, sunset: SUNSET, course: c, now: NOW })
+  const r = rangeEstimate({ params: P, budgetW: 500, sunset: SUNSET, course: c, current: foul, now: NOW })
+  const w = /** @type {import('../lib/types.js').TargetEstimate} */ (r.waypoint)
+  assert.equal(w.currentCorrected, true)
+  assert.ok(Math.abs(/** @type {number} */ (w.currentAlongMps) + 0.5 * kn) < 1e-9)
+  assert.ok(Math.abs(/** @type {number} */ (w.eta) - (NOW + 18000 / (2.5 - 0.5 * kn) * 1000)) < 1)
+  const need = 18000 / (4 * 3600) + 0.5 * kn
+  assert.ok(Math.abs(/** @type {number} */ (w.requiredPowerW) - Math.pow(need / C, 3)) < 1e-6)
+  assert.ok(/** @type {number} */ (w.requiredPowerW) > /** @type {number} */ (plain.waypoint?.requiredPowerW))
+  assert.deepEqual(r.destination, plain.destination, 'route destination uncorrected')
+  assert.equal(r.destination?.currentCorrected, false)
+  // Single-point course: the destination is that same leg, corrected.
+  const single = rangeEstimate({ params: P, budgetW: 500, sunset: SUNSET, course: course({ routeM: undefined, bearingTrue: Math.PI }), current: foul, now: NOW })
+  assert.equal(single.destination?.currentCorrected, true)
+})
+
+test('current: no bearing, no correction; a fair current can make the power 0', () => {
+  const fair = { setTrue: 0, drift: 2, source: /** @type {const} */ ('estimated') }
+  const noBearing = rangeEstimate({ params: P, budgetW: 500, sunset: SUNSET, course: course(), current: fair, now: NOW })
+  assert.equal(noBearing.waypoint?.currentCorrected, false)
+  const r = rangeEstimate({ params: P, budgetW: 500, sunset: SUNSET, course: course({ bearingTrue: 0 }), current: fair, now: NOW })
+  assert.equal(r.waypoint?.requiredPowerW, 0)
+  // A foul current stronger than the boat: no ETA.
+  const foul = rangeEstimate({ params: P, budgetW: 500, sunset: SUNSET, course: course({ bearingTrue: Math.PI }), current: { ...fair, drift: 3 }, now: NOW })
+  assert.equal(foul.waypoint?.eta, undefined)
+})

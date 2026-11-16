@@ -67,9 +67,10 @@ With a speed log it learns how fast the boat goes for a given motor power
 - **Speed at budget** and **range until sunset** at the day budget (or the
   live budget without a forecast), through the water.
 - With an active course: **ETA** at the next waypoint and at the final
-  destination, and the **motor power needed** to arrive by sunset. Distances
-  are over ground along the route, speed is through the water, so current is
-  not included.
+  destination, and the **motor power needed** to arrive by sunset. The next
+  waypoint allows for the current (set and drift from `environment.current`,
+  or estimated from GPS track, speed log and heading); the final destination
+  of a route does not, because the current changes along the way.
 
 The range stays hidden until the model has 30 steady samples, unless you set
 a fallback `c`. A fouled paddlewheel reads low: set the **STW correction
@@ -134,6 +135,8 @@ All on the self vessel, in SI units with `meta.units`:
 | `plugin.solarsailing.rangeBasis` | `dayBudget` / `budget` |
 | `plugin.solarsailing.waypointEta` / `destinationEta` | ISO 8601 time |
 | `plugin.solarsailing.waypointRequiredPower` / `destinationRequiredPower` | W |
+| `plugin.solarsailing.currentSetTrue` | rad |
+| `plugin.solarsailing.currentDrift` / `waypointCurrent` | m/s |
 
 Unknown values are published as `null`.
 
