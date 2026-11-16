@@ -34,6 +34,20 @@ All notable changes to this project are documented here. The format follows
   - The next waypoint's ETA and required power allow for the current, from
     `environment.current` or estimated from SOG/COG, STW and heading; new
     paths `currentSetTrue`, `currentDrift`, `waypointCurrent`.
+- Webapp shows the forecast and range values (plan 12).
+  - Match panel: day budget, and a "Today" line with the best hours and
+    sunset; the budget bar gains a day budget tick.
+  - House load panel and Sources: the forecast bias with the predictor's
+    status.
+  - New range panel: speed at budget, range until sunset and which budget
+    they use; the next waypoint with ETA, current along the bearing and
+    power needed, the route's destination (through water). Greyed out with
+    dashes without a speed log; while learning it shows the sample count and
+    a suggested STW factor for a fouled log.
+  - Sources: speed through water, current set and drift, speed model.
+  - Chart: new "Today" window from sunrise to sunset with the solar forecast,
+    best hours and sunset; the 3 / 6 / 24 h windows are unchanged.
+  - Sunrise in the status resource for the chart.
 
 ## [0.1.2] - 2026-11-15
 

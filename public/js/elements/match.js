@@ -3,6 +3,8 @@
 import { store, el, setTheme, metaOf, P, isFresh } from '../context.js'
 import { matchTheme } from '../state.js'
 import { formatValue } from '../units.js'
+import { todayLine } from '../view.js'
+import { offsetMinutes } from '../time.js'
 
 const WORDS = {
   matched: ['✓', 'On the sun'],
@@ -34,8 +36,14 @@ class SsMatch extends HTMLElement {
     this.panel.appendChild(this.balance)
     this.sub = el('div', 'sub', '')
     this.panel.appendChild(this.sub)
+    this.day = el('div', 'sub day', '')
+    this.panel.appendChild(this.day)
+    this.today = el('div', 'sub today', '')
+    this.panel.appendChild(this.today)
     this.appendChild(this.panel)
-    this.off = store.subscribe(['tick', 'connected', 'meta', P + 'matchState', P + 'balance', P + 'budget', P + 'motorPower', 'notifications.solarsailing.overBudget'], () => this.render())
+    this.off = store.subscribe(['tick', 'connected', 'meta', P + 'matchState', P + 'balance', P + 'budget', P + 'motorPower',
+      P + 'dayBudget', P + 'dayBudgetBasis', P + 'sunsetTargetSoc', P + 'bestHoursStart', P + 'bestHoursEnd', P + 'sunset',
+      'environment.time.timezoneOffset', 'notifications.solarsailing.overBudget'], () => this.render())
     this.render()
   }
 
@@ -73,6 +81,28 @@ class SsMatch extends HTMLElement {
     if (balFresh) sub = (bal.value >= 0 ? 'Spare sun. ' : 'Drawing from the battery. ') + sub
     if (isFresh(motor, now, connected)) sub += ', motor ' + fmt('motorPower', motor.value)
     if (this.sub.textContent !== sub) this.sub.textContent = sub
+
+    // Day budget and the "Today" line (plan 12): hidden without a forecast.
+    const day = store.get(P + 'dayBudget')
+    let dayText = ''
+    if (isFresh(day, now, connected)) {
+      const basis = store.get(P + 'dayBudgetBasis')
+      const soc = store.get(P + 'sunsetTargetSoc')
+      dayText = 'Day budget ' + fmt('dayBudget', day.value)
+      if (basis && basis.value === 'target' && soc && typeof soc.value === 'number') dayText += ', ' + Math.round(soc.value * 100) + ' % at sunset'
+      else if (basis && basis.value === 'neutral') dayText += ', SoC-neutral'
+    }
+    if (this.day.textContent !== dayText) this.day.textContent = dayText
+    this.day.hidden = !dayText
+    const val = (k) => {
+      const r = store.get(P + k)
+      return r && connected ? r.value : undefined
+    }
+    const tzr = store.get('environment.time.timezoneOffset')
+    const todayText = todayLine({ bestStart: val('bestHoursStart'), bestEnd: val('bestHoursEnd'), sunset: val('sunset') }, tzr ? offsetMinutes(tzr.value) : undefined)
+    const t = todayText ? 'Today: ' + todayText : ''
+    if (this.today.textContent !== t) this.today.textContent = t
+    this.today.hidden = !t
   }
 }
 

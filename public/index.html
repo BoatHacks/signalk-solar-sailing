@@ -18,6 +18,7 @@
     <div class="live">
       <ss-match></ss-match>
       <ss-budget-bar></ss-budget-bar>
+      <ss-range class="tab-live"></ss-range>
       <nav class="tabs" aria-label="Sections">
         <a href="#live">Values</a><a href="#chart">Chart</a><a href="#sources">Sources</a>
       </nav>
@@ -25,7 +26,7 @@
         <ss-value label="Solar" key="solarPower" hint="All chargers"></ss-value>
         <ss-value label="Motor" key="motorPower" hint="Drive draw"></ss-value>
         <ss-value label="Target RPM" key="targetRevolutions" sub-key="targetShaftRevolutions" sub-label="Shaft" hint="Learned while motoring"></ss-value>
-        <ss-value label="House load" key="houseLoad" sub-key="socBias" sub-label="SoC bias" hint="Everything but the motor"></ss-value>
+        <ss-value label="House load" key="houseLoad" sub-key="socBias" sub-label="SoC bias" sub2-key="forecastBias" sub2-label="forecast" signed hint="Everything but the motor"></ss-value>
       </div>
       <ss-energy class="tab-live"></ss-energy>
     </div>

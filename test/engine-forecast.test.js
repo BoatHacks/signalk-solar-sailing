@@ -52,6 +52,7 @@ test('no forecast, no position: budget as before, new fields unknown', () => {
 test('position alone gives the sunset, nothing that needs the forecast', () => {
   const s = new Engine(cfg()).update(readings({ position: KIEL }), NOW)
   assert.equal(s.sunset, sunTimes(KIEL.lat, KIEL.lon, Date.parse('2026-11-14T23:00:00Z')).sunset)
+  assert.equal(s.sunrise, sunTimes(KIEL.lat, KIEL.lon, Date.parse('2026-11-14T23:00:00Z')).sunrise)
   assert.equal(s.dayBudgetW, undefined)
   assert.equal(s.bestHours, undefined)
   const stale = new Engine(cfg()).update(readings({ position: { ...KIEL, stale: true } }), NOW)

@@ -4,6 +4,9 @@
 import { store, el, setTheme, metaOf, P, isFresh } from '../context.js'
 import { formatValue } from '../units.js'
 
+/** @param {number | undefined} v */
+const signed = (v) => (typeof v === 'number' && isFinite(v) ? (v >= 0 ? '+' : '') : '')
+
 class SsValue extends HTMLElement {
   connectedCallback () {
     if (this.built) return
@@ -23,6 +26,8 @@ class SsValue extends HTMLElement {
     this.appendChild(this.panel)
     const keys = ['tick', 'connected', 'meta', P + this.key]
     if (this.subKey) keys.push(P + this.subKey)
+    this.sub2Key = this.getAttribute('sub2-key')
+    if (this.sub2Key) keys.push(P + this.sub2Key, 'status')
     this.off = store.subscribe(keys, () => this.render())
     this.render()
   }
@@ -46,7 +51,15 @@ class SsValue extends HTMLElement {
       const sf = isFresh(s, now, connected)
       const label = this.getAttribute('sub-label') || ''
       const sv = formatValue(sf ? s.value : undefined, metaOf(this.subKey))
-      const text = s ? label + ' ' + sv.text + (sv.unit ? ' ' + sv.unit : '') : (this.getAttribute('hint') || '')
+      let text = s ? label + ' ' + (this.hasAttribute('signed') ? signed(sf ? s.value : undefined) : '') + sv.text + (sv.unit ? ' ' + sv.unit : '') : (this.getAttribute('hint') || '')
+      // Second sub value (forecast bias, plan 12): only while a forecast is in.
+      const status = store.get('status')
+      const s2 = this.sub2Key ? store.get(P + this.sub2Key) : undefined
+      if (s2 && status && status.forecast && isFresh(s2, now, connected)) {
+        const v2 = formatValue(Math.abs(s2.value), metaOf(this.sub2Key))
+        const word = status.snapshot && status.snapshot.forecastStatus ? ' (' + status.snapshot.forecastStatus + ')' : ''
+        text += ' · ' + (this.getAttribute('sub2-label') || '') + ' ' + signed(s2.value) + v2.text + (v2.unit ? ' ' + v2.unit : '') + word
+      }
       if (this.sub.textContent !== text) this.sub.textContent = text
     }
   }

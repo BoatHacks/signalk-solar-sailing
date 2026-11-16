@@ -43,3 +43,14 @@ test('formatValue: displayUnits, identity formula, missing values', () => {
   assert.deepEqual(formatValue(NaN, watts), { text: '-', unit: '' })
   assert.deepEqual(formatValue(5, { units: 'W', displayUnits: { formula: 'evil()', symbol: 'X' } }), { text: '5', unit: 'W' })
 })
+
+test('fallback conversions by target unit when the server sends no formula (plan 12)', () => {
+  assert.deepEqual(formatValue(1.2861, { units: 'm/s', displayUnits: { targetUnit: 'kn' } }), { text: '2.5', unit: 'kn' })
+  assert.deepEqual(formatValue(18520, { units: 'm', displayUnits: { category: 'distance', targetUnit: 'naut-mile' } }), { text: '10', unit: 'nm' })
+  assert.deepEqual(formatValue(Math.PI, { units: 'rad', displayUnits: { targetUnit: 'deg' } }), { text: '180', unit: '°' })
+  // A server formula still wins.
+  assert.deepEqual(formatValue(1, { units: 'm/s', displayUnits: { formula: 'value * 2', symbol: 'kn', targetUnit: 'kn' } }), { text: '2', unit: 'kn' })
+  // Without display units, SI with prefixes as before.
+  assert.deepEqual(formatValue(18520, { units: 'm' }), { text: '18.5', unit: 'km' })
+  assert.deepEqual(formatValue(null, { units: 'm/s', displayUnits: { targetUnit: 'kn' } }), { text: '-', unit: '' })
+})

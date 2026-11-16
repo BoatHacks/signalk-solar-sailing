@@ -23,6 +23,9 @@ class SsBudgetBar extends HTMLElement {
     this.marker.setAttribute('title', 'Solar budget')
     this.track.appendChild(this.fill)
     this.track.appendChild(this.marker)
+    this.dayMarker = el('b', 'day-marker')
+    this.dayMarker.setAttribute('title', 'Day budget')
+    this.track.appendChild(this.dayMarker)
     this.panel.appendChild(this.track)
     const scale = el('div', 'scale sub')
     this.left = el('span', '', 'Motor -')
@@ -31,7 +34,7 @@ class SsBudgetBar extends HTMLElement {
     scale.appendChild(this.right)
     this.panel.appendChild(scale)
     this.appendChild(this.panel)
-    this.off = store.subscribe(['tick', 'connected', 'meta', 'historyPeak', P + 'budget', P + 'motorPower', P + 'matchState', 'notifications.solarsailing.overBudget'], () => this.render())
+    this.off = store.subscribe(['tick', 'connected', 'meta', 'historyPeak', P + 'budget', P + 'dayBudget', P + 'motorPower', P + 'matchState', 'notifications.solarsailing.overBudget'], () => this.render())
     this.render()
   }
 
@@ -48,7 +51,9 @@ class SsBudgetBar extends HTMLElement {
     const ms = store.get(P + 'matchState')
     const bf = isFresh(b, now, connected)
     const mf = isFresh(m, now, connected)
-    const peak = Math.max(this.peak, store.get('historyPeak') || 0, bf ? b.value : 0, mf ? m.value : 0)
+    const d = store.get(P + 'dayBudget')
+    const df = isFresh(d, now, connected)
+    const peak = Math.max(this.peak, store.get('historyPeak') || 0, bf ? b.value : 0, mf ? m.value : 0, df ? d.value : 0)
     this.peak = peak
     const pct = (v) => Math.max(0, Math.min(100, (v / peak) * 100)) + '%'
     const n = store.get('notifications.solarsailing.overBudget')
@@ -58,8 +63,10 @@ class SsBudgetBar extends HTMLElement {
     this.fill.style.width = mf ? pct(m.value) : '0%'
     this.marker.style.left = bf ? pct(b.value) : '0%'
     this.marker.hidden = !bf
+    this.dayMarker.style.left = df ? pct(d.value) : '0%'
+    this.dayMarker.hidden = !df
     this.left.textContent = 'Motor ' + fmt('motorPower', mf ? m.value : undefined)
-    this.right.textContent = 'Budget ' + fmt('budget', bf ? b.value : undefined)
+    this.right.textContent = 'Budget ' + fmt('budget', bf ? b.value : undefined) + (df ? ' · day ' + fmt('dayBudget', d.value) : '')
   }
 }
 

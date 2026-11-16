@@ -146,7 +146,7 @@ export function withPrefix (value, unit) {
  * Format a published SI value for display using the path's meta.
  * Missing values give '-' (never 0 or NaN).
  * @param {number | null | undefined} value
- * @param {{ units?: string, displayUnits?: { formula?: string, symbol?: string } } | undefined} meta
+ * @param {{ units?: string, displayUnits?: { formula?: string, symbol?: string, targetUnit?: string } } | undefined} meta
  * @returns {{ text: string, unit: string }}
  */
 export function formatValue (value, meta) {
@@ -161,6 +161,38 @@ export function formatValue (value, meta) {
       if (isFinite(v)) return withPrefix(v, du.symbol)
     }
   }
+  const fb = du && TARGETS[du.targetUnit]
+  if (fb && fb.from === si) return { text: round3(fb.fn(value)), unit: fb.symbol }
   if (si === 'Hz' && !du) return { text: round3(value * 60), unit: 'rpm' }
   return withPrefix(value, si)
+}
+
+/**
+ * Fallback conversions by `displayUnits.targetUnit` when the server sends no
+ * formula (servers without the unit preferences, or meta not loaded yet).
+ */
+const TARGETS = {
+  kn: { from: 'm/s', symbol: 'kn', fn: (v) => (v * 3600) / 1852 },
+  'naut-mile': { from: 'm', symbol: 'nm', fn: (v) => v / 1852 },
+  nm: { from: 'm', symbol: 'nm', fn: (v) => v / 1852 },
+  deg: { from: 'rad', symbol: '°', fn: (v) => (v * 180) / Math.PI }
+}
+
+/** Default meta for the plan 11 paths, used until the server's meta loads. */
+export const DEFAULT_META = {
+  speedAtBudget: { units: 'm/s', displayUnits: { targetUnit: 'kn' } },
+  rangeUntilSunset: { units: 'm', displayUnits: { targetUnit: 'naut-mile' } },
+  currentDrift: { units: 'm/s', displayUnits: { targetUnit: 'kn' } },
+  waypointCurrent: { units: 'm/s', displayUnits: { targetUnit: 'kn' } },
+  currentSetTrue: { units: 'rad', displayUnits: { targetUnit: 'deg' } }
+}
+
+/**
+ * `formatValue` as one string, e.g. "2.4 kn" or "-".
+ * @param {number | null | undefined} value
+ * @param {any} meta
+ */
+export function formatText (value, meta) {
+  const f = formatValue(value, meta)
+  return f.text + (f.unit === '°' ? f.unit : f.unit ? ' ' + f.unit : '')
 }

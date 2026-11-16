@@ -1,13 +1,18 @@
 // Headless screenshots of the webapp (signalk-visuals 12). Dev only.
 //
 //   node scripts/screenshots.mjs <base url> <name> [phone|desktop] [offline] [history]
+//     [fixture|fixture-log] [night] [#chart|#sources]
 //
 // Run against a development Signal K server with simulated data, never the
 // boat's own. `history` answers the History API with a synthetic curve so the
 // chart can be shown without a history provider; `offline` refuses the
-// WebSocket so the banner shows.
+// WebSocket so the banner shows. `fixture` / `fixture-log` serve public/ and
+// simulated plugin data (scripts/fixture.mjs) with no server at all: forecast
+// without a speed log, or with a learned speed model and a route. `night`
+// sends environment.mode night; `#chart` / `#sources` open that phone tab.
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
+import { serveFixture } from './fixture.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require('playwright')
@@ -49,17 +54,27 @@ page.on('console', (m) => {
   // A missing history provider answers 501, which the page handles.
   if (m.type() === 'error' && !/status of (404|501)/.test(m.text())) errors.push(m.text())
 })
+let stopFixture = () => {}
+const variant = flags.includes('fixture-log') ? 'log' : flags.includes('fixture') ? 'winter' : undefined
+if (variant) {
+  stopFixture = await serveFixture(page, base, variant, { night: flags.includes('night'), offline: flags.includes('offline') })
+} else if (flags.includes('offline')) {
+  await page.routeWebSocket(/signalk\/v1\/stream/, (ws) => ws.close())
+}
 if (flags.includes('history')) {
   await page.route('**/signalk/v2/api/history/values**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(syntheticHistory(route.request().url())) }))
 }
-if (flags.includes('offline')) {
-  await page.routeWebSocket(/signalk\/v1\/stream/, (ws) => ws.close())
+const hash = flags.find((f) => f.startsWith('#')) || ''
+await page.goto(base + hash, { waitUntil: 'load' })
+if (flags.includes('today')) {
+  await page.waitForTimeout(6000)
+  await page.click('ss-chart button:last-child')
 }
-await page.goto(base, { waitUntil: 'load' })
 await page.waitForTimeout(flags.includes('offline') ? 2500 : 7000)
 mkdirSync('docs/screenshots', { recursive: true })
 await page.screenshot({ path: `docs/screenshots/${name}.png`, fullPage: true })
+stopFixture()
 await browser.close()
 if (errors.length) {
   console.error(errors.join('\n'))

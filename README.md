@@ -101,8 +101,10 @@ in; otherwise the page shows the offline banner.
 | ![Desktop, day](docs/screenshots/desktop-day.png) | ![Phone, chart](docs/screenshots/phone-chart.png) |
 | ![Phone, sources](docs/screenshots/phone-sources.png) | ![Phone, offline](docs/screenshots/phone-offline.png) |
 
-The screenshots were taken on a development server with simulated data; the
-chart history is synthetic. `desktop-no-history.png` shows the chart without
+The screenshots use simulated plugin data (`scripts/fixture.mjs`, no server
+needed); the chart history is synthetic. `desktop-day.png` shows the boat
+without a speed log (range panel greyed out), the others a learned speed
+model and an active route. `desktop-no-history.png` shows the chart without
 a history provider.
 
 ## Published paths
@@ -175,6 +177,8 @@ npm run lint
 npm run typecheck
 # webapp screenshots against a development server with simulated data
 node scripts/screenshots.mjs http://localhost:3000/signalk-solar-sailing/ desktop-day desktop history
+# or without a server, from simulated plugin data
+node scripts/screenshots.mjs http://fixture.test/signalk-solar-sailing/ desktop-day desktop history fixture-log today
 ```
 
 Design documents: [SPEC](docs/SPEC.md), [ARCHITECTURE](docs/ARCHITECTURE.md),
