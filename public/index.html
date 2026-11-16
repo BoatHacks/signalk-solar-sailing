@@ -25,7 +25,7 @@
       <div class="values tab-live">
         <ss-value label="Solar" key="solarPower" hint="All chargers"></ss-value>
         <ss-value label="Motor" key="motorPower" hint="Drive draw"></ss-value>
-        <ss-value label="Target RPM" key="targetRevolutions" sub-key="targetShaftRevolutions" sub-label="Shaft" hint="Learned while motoring"></ss-value>
+        <ss-value label="Target RPM" key="targetRevolutions" now-rpm sub-key="targetShaftRevolutions" sub-label="target shaft" hint="Learned while motoring"></ss-value>
         <ss-value label="House load" key="houseLoad" sub-key="socBias" sub-label="SoC bias" sub2-key="forecastBias" sub2-label="forecast" signed hint="Everything but the motor"></ss-value>
       </div>
       <ss-energy class="tab-live"></ss-energy>

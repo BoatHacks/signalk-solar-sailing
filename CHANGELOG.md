@@ -45,6 +45,7 @@ All notable changes to this project are documented here. The format follows
     dashes without a speed log; while learning it shows the sample count and
     a suggested STW factor for a fouled log.
   - Sources: speed through water, current set and drift, speed model.
+  - Target RPM panel shows the motor's current RPM next to the target.
   - Chart: new "Today" window from sunrise to sunset with the solar forecast,
     best hours and sunset; the 3 / 6 / 24 h windows are unchanged.
   - Sunrise in the status resource for the chart.

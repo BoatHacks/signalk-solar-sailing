@@ -7,6 +7,15 @@ import { formatValue } from '../units.js'
 /** @param {number | undefined} v */
 const signed = (v) => (typeof v === 'number' && isFinite(v) ? (v >= 0 ? '+' : '') : '')
 
+/**
+ * Motor RPM from the status resource, rounded, when fresh.
+ * @param {any} status
+ */
+const motorRpm = (status) => {
+  const m = status && status.available && status.sources && status.sources.motor
+  return m && !m.stale && typeof m.rpm === 'number' && isFinite(m.rpm) ? String(Math.round(m.rpm)) : undefined
+}
+
 class SsValue extends HTMLElement {
   connectedCallback () {
     if (this.built) return
@@ -28,6 +37,8 @@ class SsValue extends HTMLElement {
     if (this.subKey) keys.push(P + this.subKey)
     this.sub2Key = this.getAttribute('sub2-key')
     if (this.sub2Key) keys.push(P + this.sub2Key, 'status')
+    this.nowRpm = this.hasAttribute('now-rpm')
+    if (this.nowRpm) keys.push('status')
     this.off = store.subscribe(keys, () => this.render())
     this.render()
   }
@@ -60,6 +71,9 @@ class SsValue extends HTMLElement {
         const word = status.snapshot && status.snapshot.forecastStatus ? ' (' + status.snapshot.forecastStatus + ')' : ''
         text += ' · ' + (this.getAttribute('sub2-label') || '') + ' ' + signed(s2.value) + v2.text + (v2.unit ? ' ' + v2.unit : '') + word
       }
+      // Live motor RPM from the status poll next to the target (Tobi, 2026-11-16).
+      const rpm = this.nowRpm ? motorRpm(store.get('status')) : undefined
+      if (rpm !== undefined) text = 'Now ' + rpm + ' rpm · ' + text
       if (this.sub.textContent !== text) this.sub.textContent = text
     }
   }
