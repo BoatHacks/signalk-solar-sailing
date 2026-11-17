@@ -50,6 +50,14 @@ All notable changes to this project are documented here. The format follows
   - Chart: new "Today" window from sunrise to sunset with the solar forecast,
     best hours and sunset; the 3 / 6 / 24 h windows are unchanged.
   - Sunrise in the status resource for the chart.
+- Compact webapp layout for short landscape screens such as the B&G Vulcan
+  9 FS (670 × 430) and a Waveshare 7" panel via signalk-espos-stream
+  (1024 × 600): match, budget bar, RPM and range on screen without
+  scrolling. URL options `?size` (viewport readout), `?motion=off` (no
+  animations, for MJPEG streams) and `?layout=compact|normal`.
+- A list of the displays on board (`scripts/devices.mjs`); the screenshot
+  script takes a device name, and `scripts/contact-sheet.mjs` renders all of
+  them on one sheet.
 
 ## [0.1.2] - 2026-11-15
 

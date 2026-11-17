@@ -1,7 +1,12 @@
 // Headless screenshots of the webapp (signalk-visuals 12). Dev only.
 //
-//   node scripts/screenshots.mjs <base url> <name> [phone|desktop] [offline] [history]
-//     [fixture|fixture-log] [night] [#chart|#sources]
+//   node scripts/screenshots.mjs <base url> <name> [device] [offline] [history]
+//     [fixture|fixture-log] [night] [today] [screen] [#chart|#sources] [?query]
+//
+// `device` is an id from scripts/devices.mjs (vulcan-9fs, waveshare-7b,
+// phone, laptop; `desktop` = laptop), default laptop. `screen` captures only
+// the viewport, i.e. what the display shows without scrolling; otherwise the
+// whole page. `?query` is added to the URL (e.g. ?layout=normal).
 //
 // Run against a development Signal K server with simulated data, never the
 // boat's own. `history` answers the History API with a synthetic curve so the
@@ -12,42 +17,21 @@
 // sends environment.mode night; `#chart` / `#sources` open that phone tab.
 import { createRequire } from 'node:module'
 import { mkdirSync } from 'node:fs'
-import { serveFixture } from './fixture.mjs'
+import { serveFixture, syntheticHistory } from './fixture.mjs'
+import { DEVICES, device } from './devices.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require('playwright')
 
-const [base, name, size = 'desktop', ...flags] = process.argv.slice(2)
-const viewport = size === 'phone' ? { width: 390, height: 844 } : { width: 1280, height: 860 }
-
-function syntheticHistory (url) {
-  const hours = Number((/PT(\d+)H/.exec(url) || [])[1] || 6)
-  const now = Date.now()
-  const n = 360
-  const data = []
-  for (let i = 0; i <= n; i++) {
-    const t = now - hours * 3600000 + (i / n) * hours * 3600000
-    const f = i / n
-    const sun = Math.max(0, 900 * Math.sin(Math.PI * (0.25 + 0.6 * f))) * (0.85 + 0.15 * Math.sin(i / 7))
-    const motoring = f > 0.35 && f < 0.6 || f > 0.8
-    const motor = motoring ? 380 + 40 * Math.sin(i / 5) : 0
-    const budget = Math.max(0, sun * 0.92 - 60)
-    data.push([new Date(t).toISOString(), Math.round(sun), Math.round(motor), Math.round(budget)])
-  }
-  return {
-    context: 'vessels.self',
-    range: { from: data[0][0], to: data[data.length - 1][0] },
-    values: [
-      { path: 'plugin.solarsailing.solarPower', method: 'average' },
-      { path: 'plugin.solarsailing.motorPower', method: 'average' },
-      { path: 'plugin.solarsailing.budget', method: 'average' }
-    ],
-    data
-  }
+const [base, name, deviceId = 'laptop', ...flags] = process.argv.slice(2)
+const dev = device(deviceId)
+if (!base || !name || !dev) {
+  console.error('usage: screenshots.mjs <base url> <name> [device] [flags]; devices: ' + Object.keys(DEVICES).join(', '))
+  process.exit(2)
 }
 
 const browser = await chromium.launch()
-const page = await browser.newPage({ viewport, deviceScaleFactor: size === 'phone' ? 3 : 1 })
+const page = await browser.newPage({ viewport: dev.viewport, deviceScaleFactor: dev.dpr })
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
 page.on('console', (m) => {
@@ -66,14 +50,16 @@ if (flags.includes('history')) {
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(syntheticHistory(route.request().url())) }))
 }
 const hash = flags.find((f) => f.startsWith('#')) || ''
-await page.goto(base + hash, { waitUntil: 'load' })
+const query = flags.find((f) => f.startsWith('?')) || ''
+await page.goto(base + query + hash, { waitUntil: 'load' })
 if (flags.includes('today')) {
   await page.waitForTimeout(6000)
-  await page.click('ss-chart button:last-child')
+  // Also when the chart is on a hidden phone tab.
+  await page.$eval('ss-chart button:last-child', (b) => b.click())
 }
 await page.waitForTimeout(flags.includes('offline') ? 2500 : 7000)
 mkdirSync('docs/screenshots', { recursive: true })
-await page.screenshot({ path: `docs/screenshots/${name}.png`, fullPage: true })
+await page.screenshot({ path: `docs/screenshots/${name}.png`, fullPage: !flags.includes('screen') })
 stopFixture()
 await browser.close()
 if (errors.length) {

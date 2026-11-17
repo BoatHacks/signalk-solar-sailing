@@ -4,6 +4,7 @@ import { store } from './context.js'
 import { Stream, streamUrl } from './stream.js'
 import { loadMeta, loadStatus, STATUS_URL } from './api.js'
 import { tabFromHash } from './state.js'
+import { pageOptions, layoutFor, sizeText } from './display.js'
 import './elements/chrome.js'
 import './elements/match.js'
 import './elements/budget-bar.js'
@@ -15,6 +16,18 @@ import './elements/range.js'
 import './elements/rpm.js'
 
 const STATUS_POLL_MS = 5000
+const options = pageOptions(location.search)
+const root = document.documentElement
+
+// Compact landscape layout on short helm screens, ?size readout, ?motion=off
+// (issue #10).
+if (options.reduceMotion) root.setAttribute('data-motion', 'reduce')
+function applyLayout () {
+  root.setAttribute('data-layout', layoutFor(window.innerWidth, window.innerHeight, options.layout))
+  if (options.size) store.set('viewport', sizeText(window.innerWidth, window.innerHeight, window.devicePixelRatio))
+}
+window.addEventListener('resize', applyLayout)
+applyLayout()
 const getJson = (u) => fetch(u, { credentials: 'same-origin' })
 
 // Day/night from environment.mode; only the literal "night" dims (signalk-visuals 2).

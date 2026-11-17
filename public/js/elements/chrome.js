@@ -25,13 +25,17 @@ class SsTopbar extends HTMLElement {
     this.clock = el('span', 'clock mono', '')
     this.clock.title = 'Ship time, or UTC with Z'
     this.date = el('span', 'mono date', '')
+    this.size = el('span', 'mono size', '')
+    this.size.title = 'Viewport in CSS pixels and device pixel ratio (?size)'
+    this.size.hidden = true
     chrome.appendChild(this.age)
     chrome.appendChild(this.link)
     chrome.appendChild(this.clock)
     chrome.appendChild(this.date)
+    chrome.appendChild(this.size)
     header.appendChild(chrome)
     this.appendChild(header)
-    this.off = store.subscribe(['tick', 'connected'], () => this.render())
+    this.off = store.subscribe(['tick', 'connected', 'viewport'], () => this.render())
     this.render()
   }
 
@@ -50,6 +54,9 @@ class SsTopbar extends HTMLElement {
     const offsetMin = tz()
     this.clock.textContent = formatTime(now, offsetMin)
     this.date.textContent = formatDate(now, offsetMin)
+    const size = store.get('viewport')
+    this.size.hidden = !size
+    if (size && this.size.textContent !== size) this.size.textContent = size
   }
 }
 
