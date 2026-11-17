@@ -34,7 +34,7 @@ html, body { margin: 0; background: var(--bg-base); }
 body { font: 15px/1.45 var(--font-ui); color: var(--text-main); }
 .mono { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
 .noscript { padding: 16px; }
-ss-topbar, ss-offline, ss-match, ss-budget-bar, ss-value, ss-energy, ss-chart, ss-sources { display: block; }
+ss-topbar, ss-offline, ss-match, ss-budget-bar, ss-value, ss-energy, ss-chart, ss-sources, ss-range, ss-rpm { display: block; }
 
 /* Chrome */
 .topbar {
@@ -123,6 +123,7 @@ body[data-tab='sources'] .tab-live, body[data-tab='sources'] .tab-chart { displa
 .budget-bar .track { position: relative; height: 28px; background: rgba(var(--color-grey-rgb), 0.35); }
 .budget-bar .fill { display: block; height: 100%; width: 0; background: var(--theme-color); transition: width 0.4s; }
 .budget-bar .marker { position: absolute; top: -6px; bottom: -6px; width: 4px; margin-left: -2px; background: var(--text-main); }
+.budget-bar .day-marker { position: absolute; top: 0; bottom: 0; width: 0; margin-left: -1px; border-left: 2px dashed var(--color-orange); }
 .scale { display: flex; justify-content: space-between; font-family: var(--font-data); }
 @media (prefers-reduced-motion: reduce) { .budget-bar .fill { transition: none; } }
 
@@ -159,3 +160,24 @@ table.kv td { padding: 7px 0; border-top: 1px solid rgba(var(--color-grey-rgb), 
 table.kv td:first-child { color: var(--text-muted); padding-right: 12px; }
 table.kv td:last-child { text-align: right; white-space: nowrap; font: 1rem var(--font-data); font-variant-numeric: tabular-nums; }
 table.kv tr.stale td:last-child { color: var(--color-grey); }
+
+/* Range (plan 12) */
+.range .targets { margin: 10px 0 0; padding: 0; list-style: none; font: 0.95rem/1.4 var(--font-data); }
+.range .targets li { padding: 6px 0; border-top: 1px solid rgba(var(--color-grey-rgb), 0.3); }
+.range .hint { color: var(--color-orange); }
+.range.theme-offline .num { color: var(--color-grey); }
+.match .day { margin-top: 10px; font-family: var(--font-data); color: var(--text-main); }
+.match .today { margin-top: 2px; font-family: var(--font-data); }
+
+/* Chart: Today window */
+.l-forecast { stroke: var(--color-orange); stroke-dasharray: 5 5; opacity: 0.8; }
+.legend i.l-forecast { background: repeating-linear-gradient(90deg, var(--color-orange) 0 4px, transparent 4px 7px); }
+.legend i.k-best { height: 10px; background: rgba(var(--color-orange-rgb), 0.3); }
+.legend i.k-sunset { width: 0; height: 12px; border-left: 2px dashed var(--text-muted); }
+.plot .best { fill: rgba(var(--color-orange-rgb), 0.14); }
+.plot .sunset { stroke: var(--text-muted); stroke-dasharray: 3 3; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.plot .now { stroke: var(--text-main); stroke-width: 1; vector-effect: non-scaling-stroke; }
+
+/* RPM card: target vs current */
+ss-rpm, .values .wide { grid-column: 1 / -1; }
+.rpm .pair .value { font-size: 2.2rem; }
