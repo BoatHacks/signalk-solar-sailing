@@ -39,12 +39,14 @@ All notable changes to this project are documented here. The format follows
     sunset; the budget bar gains a day budget tick.
   - House load panel and Sources: the forecast bias with the predictor's
     status.
-  - New range panel: speed at budget, range until sunset and which budget
-    they use; the next waypoint with ETA, current along the bearing and
-    power needed, the route's destination (through water). Greyed out with
-    dashes without a speed log; while learning it shows the sample count and
-    a suggested STW factor for a fouled log.
-  - Sources: speed through water, current set and drift, speed model.
+  - New range panel: speed at budget and range until sunset side by side,
+    and which budget they use; a small table with the next waypoint and the
+    route's destination (distance, ETA, power needed, current along the
+    bearing; orange for an ETA after sunset or power over the day budget).
+    Greyed out with dashes without a speed log; while learning it shows the
+    sample count.
+  - Sources: speed through water, current set and drift, speed model, and a
+    suggested STW factor when the log looks fouled.
   - One RPM card with target and current motor RPM side by side, and target
     and current shaft RPM below.
   - Chart: new "Today" window from sunrise to sunset with the solar forecast,

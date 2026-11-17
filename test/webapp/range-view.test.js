@@ -18,8 +18,9 @@ test('range panel without a speed log: shown greyed out with dashes', () => {
   assert.equal(v.state, 'nolog')
   assert.equal(v.speed, '-')
   assert.equal(v.unit, 'kn')
-  assert.match(v.sub, /No speed log/)
-  assert.deepEqual(v.lines, [])
+  assert.equal(v.range, '-')
+  assert.equal(v.sub, 'No speed log')
+  assert.deepEqual(v.targets, [])
   assert.equal(rangeView(undefined, 60).state, 'nolog')
   assert.equal(rangeView({ available: false }, 60).speed, '-')
 })
@@ -30,8 +31,8 @@ test('range panel while learning, with the fouled-log hint', () => {
     speed: { ready: false, samples: 12, stwFactor: 1, stwFactorSuggested: 1.08, stwFactorSpread: 0.02 }
   }), 60)
   assert.equal(v.state, 'learning')
-  assert.match(v.sub, /12 samples/)
-  assert.match(v.hint, /suggested STW factor 1\.08 \(±0\.02\)/)
+  assert.equal(v.sub, 'Learning speed, 12 samples')
+  assert.equal(v.hint, '1.08 ±0.02 (set 1)')
   // A suggestion close to the set factor is not worth a hint.
   const quiet = rangeView(base({ sources: { stw: { mps: 1, stale: false } }, speed: { ready: false, samples: 3, stwFactor: 1.07, stwFactorSuggested: 1.08 } }), 60)
   assert.equal(quiet.hint, '')
@@ -55,9 +56,11 @@ test('range panel ready: speed, basis, range and course lines', () => {
   assert.equal(v.state, 'ready')
   assert.equal(v.speed, '2.5')
   assert.equal(v.unit, 'kn')
-  assert.equal(v.sub, 'At day budget: 13.8 nm until sunset, through water.')
-  assert.equal(v.lines[0], 'WP 3.1 nm, 13:05, current −0.4 kn, needs 250 W')
-  assert.equal(v.lines[1], 'Dest 14.2 nm, ETA 17:40, after sunset, needs 540 W (+140 W over day budget), through water')
+  assert.equal(v.range, '13.8')
+  assert.equal(v.rangeUnit, 'nm')
+  assert.equal(v.sub, 'At day budget')
+  assert.deepEqual(v.targets[0], { label: 'WP', dist: '3.1 nm', eta: '13:05', late: false, power: '250 W', over: false, current: '−0.4 kn' })
+  assert.deepEqual(v.targets[1], { label: 'Dest', dist: '14.2 nm', eta: '17:40', late: true, power: '540 W', over: true, current: '-' })
 })
 
 test('single-point course shows one line; no ETA shows as such; after sunset', () => {
@@ -66,12 +69,13 @@ test('single-point course shows one line; no ETA shows as such; after sunset', (
     sources: { course: { nextM: 1852, routeM: null } },
     speed: { ready: true, samples: 60 }
   }), undefined)
-  assert.equal(v.lines.length, 1)
-  assert.equal(v.lines[0], 'WP 1 nm, no ETA, through water')
-  assert.equal(v.sub, 'At live budget, after sunset.')
+  assert.equal(v.targets.length, 1)
+  assert.deepEqual(v.targets[0], { label: 'WP', dist: '1 nm', eta: '-', late: false, power: '-', over: false, current: '-' })
+  assert.equal(v.sub, 'At live budget, after sunset')
+  assert.equal(v.range, '-')
   // Without the model, the course line shows the distance only.
   const nolog = rangeView(base({ snapshot: { t: T, waypoint: { distanceM: 1852 } } }), 60)
-  assert.deepEqual(nolog.lines, ['WP 1 nm'])
+  assert.deepEqual(nolog.targets.map((t) => [t.dist, t.eta]), [['1 nm', '-']])
 })
 
 test('Today line: best hours and sunset in ship time', () => {
@@ -117,6 +121,9 @@ test('sources gain forecast bias, STW, current and speed model rows', () => {
   assert.equal(byId.stw[2], '2 kn')
   assert.deepEqual([byId.current[1], byId.current[2]], ['Current (estimated)', 'set 90°, 0.6 kn'])
   assert.equal(byId.speed[2], 'learning (5 samples)')
+  assert.equal(byId.stwhint, undefined)
+  const fouled = sourceRows({ available: true, snapshot: {}, sources: {}, speed: { ready: true, m: 0.33, stwFactor: 1, stwFactorSuggested: 1.07, stwFactorSpread: 0.02 } })
+  assert.deepEqual(fouled.find((r) => r[0] === 'stwhint').slice(1, 3), ['Log may be fouled: STW factor', '1.07 ±0.02 (set 1)'])
 })
 
 test('RPM card: target vs current, shaft below', async () => {

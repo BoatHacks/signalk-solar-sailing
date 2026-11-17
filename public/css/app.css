@@ -162,10 +162,16 @@ table.kv td:last-child { text-align: right; white-space: nowrap; font: 1rem var(
 table.kv tr.stale td:last-child { color: var(--color-grey); }
 
 /* Range (plan 12) */
-.range .targets { margin: 10px 0 0; padding: 0; list-style: none; font: 0.95rem/1.4 var(--font-data); }
-.range .targets li { padding: 6px 0; border-top: 1px solid rgba(var(--color-grey-rgb), 0.3); }
-.range .hint { color: var(--color-orange); }
+/* Speed and range as a value pair like RPM; targets as one small table. */
+.range .pair .value { font-size: 2.2rem; }
 .range.theme-offline .num { color: var(--color-grey); }
+.range .targets { width: 100%; margin-top: 10px; border-collapse: collapse; }
+.range .targets th, .range .targets td { padding: 5px 0 5px 8px; text-align: right; white-space: nowrap; border-top: 1px solid rgba(var(--color-grey-rgb), 0.3); }
+.range .targets th:first-child { padding-left: 0; text-align: left; }
+.range .targets th { font-size: 0.8rem; font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+.range .targets thead th { border-top: 0; padding-top: 0; }
+.range .targets td { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.range .targets td.warn { color: var(--color-orange); }
 .match .day { margin-top: 10px; font-family: var(--font-data); color: var(--text-main); }
 .match .today { margin-top: 2px; font-family: var(--font-data); }
 
@@ -208,7 +214,7 @@ ss-rpm, .values .wide { grid-column: 1 / -1; }
 [data-layout='compact'] .pair { grid-gap: 6px; gap: 6px; }
 [data-layout='compact'] .live {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-areas: 'match rpm' 'match range' 'bar range' 'tabs tabs';
+  grid-template-areas: 'match rpm' 'match range' 'bar bar' 'tabs tabs';
 }
 [data-layout='compact'] ss-match { grid-area: match; }
 [data-layout='compact'] ss-budget-bar { grid-area: bar; }
@@ -224,7 +230,7 @@ ss-rpm, .values .wide { grid-column: 1 / -1; }
 [data-layout='compact'] body[data-tab='sources'] .values > :not(ss-rpm) { display: none; }
 [data-layout='compact'] .values .wide, [data-layout='compact'] ss-energy { grid-column: 1 / -1; }
 
-[data-layout='compact'] .sk-card { padding: 7px 10px; }
+[data-layout='compact'] .sk-card { padding: 6px 10px; }
 [data-layout='compact'] .sk-card::before, [data-layout='compact'] .sk-card::after { width: 10px; height: 10px; }
 [data-layout='compact'] .sk-card.strong { border-width: 2px; }
 [data-layout='compact'] .sk-card.strong::before { top: 2px; left: 2px; border-width: 3px; width: 12px; height: 12px; }
@@ -237,20 +243,42 @@ ss-rpm, .values .wide { grid-column: 1 / -1; }
 [data-layout='compact'] .match-word { font-size: 1.15rem; }
 [data-layout='compact'] .match .balance { margin-top: 4px; font-size: 2.4rem; }
 [data-layout='compact'] .match .day { margin-top: 6px; }
-[data-layout='compact'] .budget-bar .track { height: 18px; }
+[data-layout='compact'] .budget-bar .track { height: 16px; }
 [data-layout='compact'] .budget-bar .marker { top: -4px; bottom: -4px; }
-[data-layout='compact'] .budget-bar .scale { margin-top: 4px; }
+[data-layout='compact'] .budget-bar .scale { margin-top: 2px; }
 [data-layout='compact'] .rpm .pair .value { font-size: 1.7rem; }
 [data-layout='compact'] .pair .k { font-size: 0.7rem; }
-[data-layout='compact'] .range .targets { margin-top: 4px; font-size: 0.8rem; line-height: 1.3; }
-[data-layout='compact'] .range .targets li { padding: 3px 0; }
+[data-layout='compact'] .range .pair .value { font-size: 1.7rem; }
+[data-layout='compact'] .range .targets { margin-top: 4px; }
+[data-layout='compact'] .range .targets th, [data-layout='compact'] .range .targets td { padding: 3px 0 3px 6px; }
+[data-layout='compact'] .range .targets th { font-size: 0.7rem; }
+[data-layout='compact'] .range .targets td { font-size: 0.85rem; }
 [data-layout='compact'] .tabs a { min-height: 40px; line-height: 40px; }
 [data-layout='compact'] .toggle button { min-height: 40px; }
 [data-layout='compact'] .plot { height: 200px; margin-top: 6px; }
 [data-layout='compact'] table.kv td { padding: 4px 0; }
+[data-layout='compact'] ss-rpm .sk-card, [data-layout='compact'] ss-range .sk-card { height: 100%; }
 @media (min-width: 900px) {
-  /* Waveshare 7": the four helm panels take most of the width, chart beside. */
-  [data-layout='compact'] .layout { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
-  [data-layout='compact'] .page { padding: 8px 10px 24px; }
-  [data-layout='compact'] .plot { height: 260px; height: calc(100vh - 170px); }
+  /* Waveshare 7" (1024 × 600): one screen, nothing cut at the edge. Match,
+     RPM and range in a row, the budget bar across, the chart filling the
+     rest of the height; values, energy and sources start below the fold. */
+  [data-layout='compact'] .page { padding: 6px 8px 24px; }
+  [data-layout='compact'] .live, [data-layout='compact'] .side { display: contents; }
+  [data-layout='compact'] .layout {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas: 'match rpm range' 'bar bar bar' 'chart chart chart' 'solar motor house' 'energy sources sources';
+  }
+  [data-layout='compact'] .layout ss-value[key='solarPower'] { grid-area: solar; }
+  [data-layout='compact'] .layout ss-value[key='motorPower'] { grid-area: motor; }
+  [data-layout='compact'] .layout ss-value[key='houseLoad'] { grid-area: house; }
+  [data-layout='compact'] .layout ss-energy { grid-area: energy; }
+  [data-layout='compact'] .layout ss-chart { grid-area: chart; }
+  [data-layout='compact'] .layout ss-sources { grid-area: sources; }
+  [data-layout='compact'] .layout .sk-card.chart { display: flex; flex-direction: column; height: 100%; }
+  [data-layout='compact'] .layout .chart .plot { flex: 1 1 0; height: auto; min-height: 80px; }
+  [data-layout='compact'] .layout .chart .legend .item { margin-right: 12px; }
+}
+@media (max-width: 899px) {
+  /* Vulcan 9 FS: no room for the shaft line (Sources has the gear ratio). */
+  [data-layout='compact'] .rpm .sub { display: none; }
 }
