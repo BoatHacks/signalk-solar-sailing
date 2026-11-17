@@ -77,13 +77,15 @@ project file `solar-sailing/mockups/plan12-chart-options.png`).
   forecast fixture); read them before committing.
 
 ## Implementation Steps
-- [ ] Units and state keys for the new paths
-- [ ] Day budget and "Today" line in `<ss-match>`, tick in `<ss-budget-bar>`
-- [ ] Forecast bias line in the breakdown
-- [ ] `<ss-range>` (basis, waypoint current, learning hint with STW factor)
-- [ ] Sources tab: current, STW, speed model
-- [ ] Chart: "Today" window with forecast curve, best hours, sunset
-- [ ] Screenshots retaken; `signalk.screenshots` still two files; CHANGELOG
+Done in PR #9 (squash-merged 2026-11-17, not released). Also added there (Tobi, 2026-11-17): one RPM card with target vs current motor RPM, target and current shaft RPM below.
+
+- [x] Units and state keys for the new paths
+- [x] Day budget and "Today" line in `<ss-match>`, tick in `<ss-budget-bar>`
+- [x] Forecast bias line in the breakdown
+- [x] `<ss-range>` (basis, waypoint current, learning hint with STW factor)
+- [x] Sources tab: current, STW, speed model
+- [x] Chart: "Today" window with forecast curve, best hours, sunset
+- [x] Screenshots retaken; `signalk.screenshots` still two files; CHANGELOG
 
 ## Files to Create/Modify
 `public/js/elements/range.js`, `public/js/elements/match.js`,
