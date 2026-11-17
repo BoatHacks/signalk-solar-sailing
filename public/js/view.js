@@ -295,3 +295,25 @@ export function forecastPeak (hours) {
   for (let i = 0; i < hours.length; i++) if (hours[i] && typeof hours[i].solarW === 'number' && hours[i].solarW > max) max = hours[i].solarW
   return max
 }
+
+/**
+ * RPM card (Tobi, 2026-11-17): target vs current motor RPM, and the same
+ * for the shaft. Target from the published paths (Hz), current from the
+ * status poll (motor rpm, shaft = motor / gear ratio). Missing → '-'.
+ * @param {number | undefined} targetHz
+ * @param {number | undefined} targetShaftHz
+ * @param {any} status
+ */
+export function rpmView (targetHz, targetShaftHz, status) {
+  const r = (v) => (typeof v === 'number' && isFinite(v) ? String(Math.round(v)) : '-')
+  const m = status && status.available && status.sources ? status.sources.motor : null
+  const cur = m && !m.stale && typeof m.rpm === 'number' ? m.rpm : undefined
+  const gear = m && typeof m.gearRatio === 'number' && m.gearRatio > 0 ? m.gearRatio : undefined
+  const tShaft = typeof targetShaftHz === 'number' ? targetShaftHz * 60 : undefined
+  const cShaft = cur !== undefined && gear !== undefined ? cur / gear : undefined
+  return {
+    target: r(typeof targetHz === 'number' ? targetHz * 60 : undefined),
+    current: r(cur),
+    shaft: tShaft === undefined && cShaft === undefined ? '' : 'Shaft: target ' + r(tShaft) + ' · current ' + r(cShaft) + ' rpm'
+  }
+}

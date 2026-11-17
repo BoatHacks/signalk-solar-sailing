@@ -34,7 +34,7 @@ html, body { margin: 0; background: var(--bg-base); }
 body { font: 15px/1.45 var(--font-ui); color: var(--text-main); }
 .mono { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
 .noscript { padding: 16px; }
-ss-topbar, ss-offline, ss-match, ss-budget-bar, ss-value, ss-energy, ss-chart, ss-sources, ss-range { display: block; }
+ss-topbar, ss-offline, ss-match, ss-budget-bar, ss-value, ss-energy, ss-chart, ss-sources, ss-range, ss-rpm { display: block; }
 
 /* Chrome */
 .topbar {
@@ -177,3 +177,7 @@ table.kv tr.stale td:last-child { color: var(--color-grey); }
 .plot .best { fill: rgba(var(--color-orange-rgb), 0.14); }
 .plot .sunset { stroke: var(--text-muted); stroke-dasharray: 3 3; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .plot .now { stroke: var(--text-main); stroke-width: 1; vector-effect: non-scaling-stroke; }
+
+/* RPM card: target vs current */
+ss-rpm, .values .wide { grid-column: 1 / -1; }
+.rpm .pair .value { font-size: 2.2rem; }

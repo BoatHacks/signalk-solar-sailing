@@ -118,3 +118,14 @@ test('sources gain forecast bias, STW, current and speed model rows', () => {
   assert.deepEqual([byId.current[1], byId.current[2]], ['Current (estimated)', 'set 90°, 0.6 kn'])
   assert.equal(byId.speed[2], 'learning (5 samples)')
 })
+
+test('RPM card: target vs current, shaft below', async () => {
+  const { rpmView } = await import('../../public/js/view.js')
+  const status = { available: true, sources: { motor: { rpm: 1150.4, gearRatio: 2, stale: false } } }
+  assert.deepEqual(rpmView(19.6, 9.8, status), { target: '1176', current: '1150', shaft: 'Shaft: target 588 · current 575 rpm' })
+  assert.deepEqual(rpmView(undefined, undefined, undefined), { target: '-', current: '-', shaft: '' })
+  const stale = { available: true, sources: { motor: { rpm: 1000, stale: true } } }
+  assert.equal(rpmView(19.6, undefined, stale).current, '-')
+  // No gear ratio: no current shaft value.
+  assert.equal(rpmView(19.6, 9.8, { available: true, sources: { motor: { rpm: 1000, stale: false } } }).shaft, 'Shaft: target 588 · current - rpm')
+})

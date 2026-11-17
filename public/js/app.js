@@ -12,6 +12,7 @@ import './elements/energy.js'
 import './elements/sources.js'
 import './elements/chart.js'
 import './elements/range.js'
+import './elements/rpm.js'
 
 const STATUS_POLL_MS = 5000
 const getJson = (u) => fetch(u, { credentials: 'same-origin' })
