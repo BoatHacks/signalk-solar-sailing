@@ -4,6 +4,7 @@ import { store } from './context.js'
 import { Stream, streamUrl } from './stream.js'
 import { loadMeta, loadStatus, STATUS_URL } from './api.js'
 import { tabFromHash } from './state.js'
+import { pageOptions, layoutFor, sizeText } from './display.js'
 import './elements/chrome.js'
 import './elements/match.js'
 import './elements/budget-bar.js'
@@ -15,6 +16,39 @@ import './elements/range.js'
 import './elements/rpm.js'
 
 const STATUS_POLL_MS = 5000
+const options = pageOptions(location.search)
+const root = document.documentElement
+
+// Compact landscape layout on short helm screens, ?size readout, ?motion=off
+// (issue #10).
+if (options.reduceMotion) root.setAttribute('data-motion', 'reduce')
+function applyLayout () {
+  root.setAttribute('data-layout', layoutFor(window.innerWidth, window.innerHeight, options.layout))
+  if (options.size) store.set('viewport', sizeText(window.innerWidth, window.innerHeight, window.devicePixelRatio))
+}
+window.addEventListener('resize', applyLayout)
+applyLayout()
+
+// Compact: the panels above the fold fill the screen exactly, so the fold
+// never cuts a card. The filler grows or shrinks until the last element
+// above the fold ends one gap above the screen's bottom edge: the match
+// panel (tabs last) on narrow screens, the chart on wide ones (Waveshare).
+const FOLD_GAP = 6
+function fitScreen () {
+  const wide = window.innerWidth >= 900
+  const fill = /** @type {HTMLElement | null} */ (document.querySelector(wide ? 'ss-chart' : 'ss-match'))
+  const last = document.querySelector(wide ? 'ss-chart' : '.tabs')
+  if (!fill || !last) return
+  if (root.getAttribute('data-layout') !== 'compact') {
+    if (fill.style.minHeight) fill.style.minHeight = ''
+    return
+  }
+  const other = /** @type {HTMLElement | null} */ (document.querySelector(wide ? 'ss-match' : 'ss-chart'))
+  if (other && other.style.minHeight) other.style.minHeight = ''
+  const delta = Math.round(window.innerHeight - FOLD_GAP - (last.getBoundingClientRect().bottom + window.pageYOffset))
+  if (Math.abs(delta) > 1) fill.style.minHeight = Math.max(0, fill.offsetHeight + delta) + 'px'
+}
+window.addEventListener('resize', fitScreen)
 const getJson = (u) => fetch(u, { credentials: 'same-origin' })
 
 // Day/night from environment.mode; only the literal "night" dims (signalk-visuals 2).
@@ -57,7 +91,10 @@ window.addEventListener('hashchange', showTab)
 showTab()
 
 // Ages and staleness are re-evaluated once a second.
-setInterval(() => store.set('tick', Date.now()), 1000)
+setInterval(() => {
+  store.set('tick', Date.now())
+  fitScreen()
+}, 1000)
 
 new Stream(store, streamUrl(location)).start()
 pollStatus()

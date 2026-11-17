@@ -70,6 +70,8 @@ export function sourceRows (status) {
   const sp = status.speed
   if (sp) {
     rows.push(['speed', 'Speed model', sp.ready ? 'v = c·P^' + round3(sp.m) : 'learning (' + sp.samples + ' samples)', !sp.ready])
+    const hint = rangeView(status, undefined).hint
+    if (hint) rows.push(['stwhint', 'Log may be fouled: STW factor', hint, false])
   }
   return rows
 }
@@ -146,7 +148,10 @@ export function todayLine (v, tz) {
 const metaFor = (metaOf, key) => (metaOf && metaOf(key) && metaOf(key).units ? metaOf(key) : DEFAULT_META[key])
 
 /**
- * One course target line for the range panel.
+ * One course target row for the range panel: distance, ETA, power needed
+ * and the current along the bearing, as short cells. `late` marks an ETA
+ * after sunset, `over` a power above the day budget; '-' where unknown or,
+ * for the current, when the estimate is through water.
  * @param {string} label
  * @param {any} target TargetEstimate from the snapshot
  * @param {any} snap
@@ -154,35 +159,34 @@ const metaFor = (metaOf, key) => (metaOf && metaOf(key) && metaOf(key).units ? m
  * @param {number | undefined} tz
  * @param {Function} [metaOf]
  */
-export function targetLine (label, target, snap, model, tz, metaOf) {
-  const parts = [label + ' ' + formatText(target.distanceM, metaFor(metaOf, 'rangeUntilSunset'))]
-  if (!model) return parts.join(', ')
-  parts.push(typeof target.eta === 'number' ? (label === 'WP' ? '' : 'ETA ') + formatTime(target.eta, tz) : 'no ETA')
-  if (target.afterSunset) parts.push('after sunset')
+export function targetRow (label, target, snap, model, tz, metaOf) {
+  const row = { label: label, dist: formatText(target.distanceM, metaFor(metaOf, 'rangeUntilSunset')), eta: '-', late: false, power: '-', over: false, current: '-' }
+  if (!model) return row
+  if (typeof target.eta === 'number') row.eta = formatTime(target.eta, tz)
+  row.late = Boolean(target.afterSunset)
+  if (typeof target.requiredPowerW === 'number') {
+    row.power = watts(target.requiredPowerW)
+    row.over = typeof snap.dayBudgetW === 'number' && target.requiredPowerW > snap.dayBudgetW
+  }
   if (target.currentCorrected && typeof target.currentAlongMps === 'number') {
     const c = target.currentAlongMps
-    parts.push('current ' + (c >= 0 ? '+' : '−') + formatText(Math.abs(c), metaFor(metaOf, 'waypointCurrent')))
+    row.current = (c >= 0 ? '+' : '−') + formatText(Math.abs(c), metaFor(metaOf, 'waypointCurrent'))
   }
-  if (typeof target.requiredPowerW === 'number') {
-    let need = 'needs ' + watts(target.requiredPowerW)
-    const day = snap.dayBudgetW
-    if (typeof day === 'number' && target.requiredPowerW > day) need += ' (+' + watts(target.requiredPowerW - day) + ' over day budget)'
-    parts.push(need)
-  }
-  if (!target.currentCorrected) parts.push('through water')
-  return parts.join(', ')
+  return row
 }
 
 /**
- * Everything the range panel shows (plan 12). States: `nolog` (no speed
- * through water and no learned model: panel greyed out with dashes),
- * `learning`, `ready`.
+ * Everything the range panel shows (plan 12, tidied for issue #10). States:
+ * `nolog` (no speed through water and no learned model: panel greyed out
+ * with dashes), `learning`, `ready`. Speed at budget and range until sunset
+ * as two values, `sub` one short line, `targets` a small table. `hint` (the
+ * fouled-log suggestion) is shown in Sources, not on the panel.
  * @param {any} status
  * @param {number | undefined} tz
  * @param {Function} [metaOf]
  */
 export function rangeView (status, tz, metaOf) {
-  const out = { state: 'nolog', speed: '-', unit: 'kn', sub: '', hint: '', lines: [] }
+  const out = { state: 'nolog', speed: '-', unit: 'kn', range: '-', rangeUnit: 'nm', sub: '', hint: '', targets: [] }
   const ok = status && status.available
   const snap = (ok && status.snapshot) || {}
   const src = (ok && status.sources) || {}
@@ -190,34 +194,36 @@ export function rangeView (status, tz, metaOf) {
   const stw = src.stw
   const ready = Boolean(sp && sp.ready)
   if (!ok) {
-    out.sub = 'Waiting for the plugin…'
+    out.sub = 'Waiting for the plugin'
     return out
   }
   if (ready) out.state = 'ready'
   else if (stw && !stw.stale) out.state = 'learning'
   if (out.state === 'nolog') {
-    out.sub = 'No speed log: range needs speed through water.'
+    out.sub = 'No speed log'
   } else if (out.state === 'learning') {
-    out.sub = 'Learning speed from steady motoring (' + (sp ? sp.samples : 0) + ' samples).'
+    out.sub = 'Learning speed, ' + (sp ? sp.samples : 0) + ' samples'
   } else {
-    const f = metaFor(metaOf, 'speedAtBudget')
-    const v = withUnit(snap.speedAtBudget, f)
+    const v = withUnit(snap.speedAtBudget, metaFor(metaOf, 'speedAtBudget'))
     out.speed = v.text
     out.unit = v.unit || 'kn'
-    const basis = snap.rangeBasis === 'dayBudget' ? 'At day budget' : 'At live budget'
+    out.sub = snap.rangeBasis === 'dayBudget' ? 'At day budget' : 'At live budget'
     const ss = snap.sunset
-    if (typeof ss === 'number' && ss <= snap.t) out.sub = basis + ', after sunset.'
-    else if (typeof snap.rangeUntilSunsetM === 'number') out.sub = basis + ': ' + formatText(snap.rangeUntilSunsetM, metaFor(metaOf, 'rangeUntilSunset')) + ' until sunset, through water.'
-    else out.sub = basis + '.'
+    if (typeof ss === 'number' && ss <= snap.t) out.sub += ', after sunset'
+    else if (typeof snap.rangeUntilSunsetM === 'number') {
+      const r = withUnit(snap.rangeUntilSunsetM, metaFor(metaOf, 'rangeUntilSunset'))
+      out.range = r.text
+      out.rangeUnit = r.unit || 'nm'
+    }
   }
   if (sp && typeof sp.stwFactorSuggested === 'number' && Math.abs(sp.stwFactorSuggested - (sp.stwFactor || 1)) >= 0.03) {
-    out.hint = 'Log may be fouled: suggested STW factor ' + round3(sp.stwFactorSuggested) +
-      (typeof sp.stwFactorSpread === 'number' ? ' (±' + round3(sp.stwFactorSpread) + ')' : '') + ', set now ' + round3(sp.stwFactor || 1) + '.'
+    out.hint = round3(sp.stwFactorSuggested) + (typeof sp.stwFactorSpread === 'number' ? ' ±' + round3(sp.stwFactorSpread) : '') +
+      ' (set ' + round3(sp.stwFactor || 1) + ')'
   }
   const course = src.course
-  if (snap.waypoint) out.lines.push(targetLine('WP', snap.waypoint, snap, ready, tz, metaOf))
+  if (snap.waypoint) out.targets.push(targetRow('WP', snap.waypoint, snap, ready, tz, metaOf))
   if (snap.destination && course && course.routeM !== null && course.routeM !== undefined) {
-    out.lines.push(targetLine('Dest', snap.destination, snap, ready, tz, metaOf))
+    out.targets.push(targetRow('Dest', snap.destination, snap, ready, tz, metaOf))
   }
   return out
 }

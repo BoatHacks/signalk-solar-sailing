@@ -107,6 +107,35 @@ without a speed log (range panel greyed out), the others a learned speed
 model and an active route. `desktop-no-history.png` shows the chart without
 a history provider.
 
+### Displays on board
+
+The layouts are checked on these displays (`scripts/devices.mjs`). The phone
+and laptop screenshots above stand for the cockpit and the nav station.
+
+| Display | Viewport (CSS px) | DPR | Browser | Where |
+|---|---|---|---|---|
+| B&G Vulcan 9 FS (800 × 480 panel) | 670 × 430, assumed | 1 | Chromium 69 | helm |
+| Waveshare ESP32-P4 7" via [signalk-espos-stream](https://github.com/signalk-espOS/signalk-espos-stream) | 1024 × 600 | 1 | Chromium kiosk, MJPEG | helm |
+| Phone | 390 × 844 | 3 | current | cockpit |
+| Nav station laptop | 1280 × 860 | 1 | current | nav station |
+
+On short landscape screens (at most 640 px high, e.g. the two helm displays
+or a phone turned sideways) the webapp switches to a **compact layout**:
+match with the day and Today lines, the budget bar, target vs current RPM and
+range side by side without scrolling, on every tab; the rest below.
+
+| | |
+|---|---|
+| ![Vulcan 9 FS, compact](docs/screenshots/vulcan-9fs.png) | ![Waveshare 7", compact](docs/screenshots/waveshare-7b.png) |
+
+URL options:
+
+- `?size` shows the viewport and pixel ratio in the top bar, to measure a
+  plotter's browser (the Vulcan figure above still needs confirming).
+- `?motion=off` stops animations and transitions; use it for the espos-stream
+  capture URL, where they cost MJPEG frames.
+- `?layout=compact` / `?layout=normal` overrides the automatic layout.
+
 ## Published paths
 
 All on the self vessel, in SI units with `meta.units`:
@@ -179,6 +208,10 @@ npm run typecheck
 node scripts/screenshots.mjs http://localhost:3000/signalk-solar-sailing/ desktop-day desktop history
 # or without a server, from simulated plugin data
 node scripts/screenshots.mjs http://fixture.test/signalk-solar-sailing/ desktop-day desktop history fixture-log today
+# one display from scripts/devices.mjs, only what it shows without scrolling
+node scripts/screenshots.mjs http://fixture.test/signalk-solar-sailing/ vulcan-9fs vulcan-9fs fixture-log screen
+# every display on one contact sheet, to review before a release
+node scripts/contact-sheet.mjs
 ```
 
 Design documents: [SPEC](docs/SPEC.md), [ARCHITECTURE](docs/ARCHITECTURE.md),
